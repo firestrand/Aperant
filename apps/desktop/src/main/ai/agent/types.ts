@@ -10,6 +10,7 @@
 import type { ExecutionProgressData, ProcessType } from '../../../main/agent/types';
 import type { SessionConfig, SessionResult, StreamEvent } from '../session/types';
 import type { RunnerOptions } from '../session/runner';
+import type { CustomMcpServer } from '../../../shared/types/project';
 
 // =============================================================================
 // Worker Configuration
@@ -35,6 +36,21 @@ export interface WorkerConfig {
  * The LanguageModel instance cannot cross worker boundaries,
  * so we pass provider/model identifiers and reconstruct in the worker.
  */
+export interface SerializablePhaseSessionConfig {
+  /** Provider identifier for model reconstruction */
+  provider: string;
+  /** Provider-specific model ID for model reconstruction */
+  modelId: string;
+  /** API key or token for auth */
+  apiKey?: string;
+  /** Base URL override for the provider */
+  baseURL?: string;
+  /** Config directory for OAuth profile */
+  configDir?: string;
+  /** Pre-resolved path to OAuth token file for file-based OAuth providers. */
+  oauthTokenFilePath?: string;
+}
+
 export interface SerializableSessionConfig {
   agentType: SessionConfig['agentType'];
   systemPrompt: string;
@@ -61,19 +77,28 @@ export interface SerializableSessionConfig {
   configDir?: string;
   /** Pre-resolved path to OAuth token file for file-based OAuth providers (e.g., Codex). Worker-safe. */
   oauthTokenFilePath?: string;
+  /** Optional per-phase provider/model/auth entries for build sub-sessions. */
+  phaseAuth?: Partial<Record<'spec' | 'planning' | 'coding' | 'qa', SerializablePhaseSessionConfig>>;
   /** MCP options resolved from project settings (serialized for worker) */
   mcpOptions?: {
     context7Enabled?: boolean;
     memoryEnabled?: boolean;
     linearEnabled?: boolean;
+    linearApiKey?: string;
+    memoryMcpUrl?: string;
     electronMcpEnabled?: boolean;
     puppeteerMcpEnabled?: boolean;
+    serenaEnabled?: boolean;
+    serenaLaunchWebUi?: boolean;
     projectCapabilities?: {
       is_electron?: boolean;
       is_web_frontend?: boolean;
     };
     agentMcpAdd?: string;
     agentMcpRemove?: string;
+    customMcpServers?: CustomMcpServer[];
+    /** Spec directory passed to MCP registry for spec-scoped servers such as auto-claude. */
+    specDir?: string;
   };
   /** Enable agentic orchestration mode where the AI drives the pipeline via SpawnSubagent tool */
   useAgenticOrchestration?: boolean;

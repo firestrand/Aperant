@@ -9,6 +9,7 @@
  * and whether it's enabled by default.
  */
 
+import type { CustomMcpServer } from '../../../shared/types/project';
 import type { McpServerConfig, McpServerId } from './types';
 
 // =============================================================================
@@ -99,10 +100,61 @@ const PUPPETEER_SERVER: McpServerConfig = {
   },
 };
 
+function createSerenaServer(launchWebUi = true): McpServerConfig {
+  return {
+    id: 'serena',
+    name: 'Serena',
+    description: 'Semantic codebase tools via Serena MCP',
+    enabledByDefault: false,
+    transport: {
+      type: 'stdio',
+      command: 'serena',
+      args: [
+        'start-mcp-server',
+        '--context',
+        'ide',
+        '--project-from-cwd',
+        '--enable-web-dashboard',
+        launchWebUi ? 'true' : 'false',
+      ],
+    },
+  };
+}
+
 /**
  * Auto-Claude MCP server - custom build management tools.
  * Used by planner, coder, and QA agents for build progress tracking.
  */
+function createCustomServer(server: CustomMcpServer): McpServerConfig | null {
+  if (server.type === 'command') {
+    if (!server.command) return null;
+    return {
+      id: server.id,
+      name: server.name,
+      description: server.description,
+      enabledByDefault: false,
+      transport: {
+        type: 'stdio',
+        command: server.command,
+        args: server.args,
+      },
+    };
+  }
+
+  if (!server.url) return null;
+  return {
+    id: server.id,
+    name: server.name,
+    description: server.description,
+    enabledByDefault: false,
+    transport: {
+      type: 'streamable-http',
+      url: server.url,
+      headers: server.headers,
+    },
+  };
+}
+
 function createAutoClaudeServer(specDir: string): McpServerConfig {
   return {
     id: 'auto-claude',
@@ -132,6 +184,10 @@ export interface McpRegistryOptions {
   linearApiKey?: string;
   /** Environment variables for server processes */
   env?: Record<string, string>;
+  /** Global user-defined MCP server definitions */
+  customMcpServers?: CustomMcpServer[];
+  /** Whether Serena should launch its web UI/dashboard when started */
+  serenaLaunchWebUi?: boolean;
 }
 
 /**
@@ -175,13 +231,18 @@ export function getMcpServerConfig(
     case 'puppeteer':
       return PUPPETEER_SERVER;
 
+    case 'serena':
+      return createSerenaServer(options.serenaLaunchWebUi ?? true);
+
     case 'auto-claude': {
       const specDir = options.specDir ?? '';
       return createAutoClaudeServer(specDir);
     }
 
-    default:
-      return null;
+    default: {
+      const custom = options.customMcpServers?.find((server) => server.id === serverId);
+      return custom ? createCustomServer(custom) : null;
+    }
   }
 }
 

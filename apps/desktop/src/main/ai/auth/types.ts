@@ -20,6 +20,7 @@ import type { ReasoningConfig } from '../../../shared/constants/models';
 export type AuthSource =
   | 'profile-oauth'       // OAuth token from claude-profile credential store
   | 'codex-oauth'         // OAuth token from OpenAI Codex PKCE flow
+  | 'google-oauth'        // OAuth token from Google Gemini PKCE flow
   | 'profile-api-key'     // API key stored in profile settings
   | 'environment'         // Environment variable (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)
   | 'default'             // Default provider credentials (e.g., built-in defaults)

@@ -2,7 +2,7 @@
  * Application settings types
  */
 
-import type { NotificationSettings, MemoryEmbeddingProvider } from './project';
+import type { CustomMcpServer, NotificationSettings, MemoryEmbeddingProvider } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 import type { SupportedLanguage } from '../constants/i18n';
 import type { ProviderAccount, BuiltinProvider } from './provider-account';
@@ -236,6 +236,12 @@ export interface AgentProfile {
 
 // Per-provider agent configuration
 export interface PerProviderAgentConfig {
+  /** Display mode for this provider's agent settings. Defaults to 'simple'. */
+  mode?: 'simple' | 'advanced';
+  /** Base model selected in simple mode. Profile thinking presets are applied on top of this model. */
+  simpleBaseModel?: string;
+  /** Category-to-model mapping used by simple mode for providers with dynamic/local models such as Ollama. */
+  categoryModels?: Partial<Record<'reasoningHeavy' | 'coding' | 'review' | 'fastUtility' | 'chat', string>>;
   selectedAgentProfile?: string;         // 'auto' | 'complex' | 'balanced' | 'quick'
   customPhaseModels?: PhaseModelConfig;
   customPhaseThinking?: PhaseThinkingConfig;
@@ -258,6 +264,15 @@ export type MixedPhaseConfig = Record<PipelinePhase, MixedPhaseEntry>;
 
 // Cross-provider feature config
 export type MixedFeatureConfig = Record<keyof FeatureModelConfig, MixedPhaseEntry>;
+
+export interface GlobalMcpDefaults {
+  /** Context7 documentation lookup - default: true */
+  context7Enabled?: boolean;
+  /** Serena codebase MCP - default: false */
+  serenaEnabled?: boolean;
+  /** Launch Serena's web UI/dashboard when Serena MCP starts - default: true */
+  serenaLaunchWebUi?: boolean;
+}
 
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
@@ -329,6 +344,10 @@ export interface AppSettings {
   betaUpdates?: boolean;
   // Per-provider agent configuration
   providerAgentConfig?: Partial<Record<BuiltinProvider, PerProviderAgentConfig>>;
+  // Global MCP server definitions. Projects choose which definitions to enable via ProjectEnvConfig.
+  globalMcpServers?: CustomMcpServer[];
+  // Built-in MCP defaults applied unless a project explicitly overrides them.
+  globalMcpDefaults?: GlobalMcpDefaults;
   customMixedProfileActive?: boolean;
   customMixedPhaseConfig?: MixedPhaseConfig;
   customMixedFeatureConfig?: MixedFeatureConfig;

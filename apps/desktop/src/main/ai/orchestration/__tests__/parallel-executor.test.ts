@@ -98,6 +98,20 @@ describe('executeParallel', () => {
     expect(ids).toContain('beta');
   });
 
+  it.each(['max_steps', 'context_window'] as const)(
+    'treats %s as successful coding completion',
+    async (outcome) => {
+      const subtasks = [makeSubtask('soft-success')];
+      const runner = vi.fn().mockResolvedValue(makeResult(outcome)) as SubtaskSessionRunner;
+
+      const result = await executeParallel(subtasks, runner, { maxConcurrency: 1 });
+
+      expect(result.successCount).toBe(1);
+      expect(result.failureCount).toBe(0);
+      expect(result.results[0].success).toBe(true);
+    },
+  );
+
   // -------------------------------------------------------------------------
   // Partial failure
   // -------------------------------------------------------------------------

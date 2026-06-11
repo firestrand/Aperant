@@ -202,7 +202,9 @@ async function executeSingleSubtask(
     const result = await runSession(subtask);
 
     const rateLimited = result.outcome === 'rate_limited';
-    const success = result.outcome === 'completed';
+    const success = result.outcome === 'completed'
+      || result.outcome === 'max_steps'
+      || result.outcome === 'context_window';
 
     if (success || rateLimited) {
       config.onSubtaskComplete?.(subtask, result);

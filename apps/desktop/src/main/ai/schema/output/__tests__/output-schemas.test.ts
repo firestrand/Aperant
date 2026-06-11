@@ -57,6 +57,39 @@ describe('ImplementationPlanOutputSchema', () => {
     expect(result.phases[0].subtasks).toHaveLength(1);
   });
 
+  it('should preserve parallel coding metadata', () => {
+    const valid = {
+      feature: 'Add user auth',
+      workflow_type: 'feature',
+      phases: [{
+        id: 'phase-1',
+        name: 'Setup',
+        depends_on: ['phase-0'],
+        parallel_safe: true,
+        subtasks: [{
+          id: '1.1',
+          title: 'Create auth module',
+          description: 'Set up authentication module',
+          status: 'pending',
+          files_to_create: ['src/auth.ts'],
+          files_to_modify: [],
+        }],
+      }],
+      summary: {
+        parallelism: {
+          max_parallel_phases: 2,
+          parallel_groups: [{ phases: ['phase-1'], reason: 'No file overlap' }],
+          recommended_workers: 2,
+        },
+      },
+    };
+
+    const result = ImplementationPlanOutputSchema.parse(valid);
+    expect(result.phases[0].depends_on).toEqual(['phase-0']);
+    expect(result.phases[0].parallel_safe).toBe(true);
+    expect(result.summary?.parallelism?.recommended_workers).toBe(2);
+  });
+
   it('should reject plan with no phases', () => {
     expect(() => ImplementationPlanOutputSchema.parse({
       feature: 'test',

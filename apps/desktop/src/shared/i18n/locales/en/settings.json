@@ -33,6 +33,10 @@
       "title": "Accounts",
       "description": "Claude accounts & API endpoints"
     },
+    "mcp": {
+      "title": "MCP Defaults",
+      "description": "Global server definitions"
+    },
     "updates": {
       "title": "Updates",
       "description": "Aperant updates"
@@ -208,8 +212,10 @@
     "otherAgentSettings": "Other Agent Settings",
     "otherAgentSettingsDescription": "Additional agent configuration options",
     "agentFramework": "Agent Framework",
-    "agentFrameworkDescription": "The coding framework used for autonomous tasks",
+    "agentFrameworkDescription": "Aperant is the built-in orchestration engine for autonomous tasks.",
     "agentFrameworkAutoClaude": "Aperant",
+    "agentFrameworkDisabledTooltip": "Framework switching is not available yet. External frameworks need dedicated adapters for planning, tools, QA, state, and worktree isolation.",
+    "agentFrameworkDisabledHelp": "Use model profiles, Advanced phase/feature settings, MCP defaults, and provider priority for agent behavior control today.",
     "aiTerminalNaming": "AI Terminal Naming",
     "aiTerminalNamingDescription": "Automatically name terminals based on commands (uses AI Naming model)",
     "featureModelSettings": "Feature Model Settings",
@@ -244,6 +250,7 @@
     "sourceBundled": "Bundled",
     "sourceFallback": "Fallback",
     "notDetected": "Not detected",
+    "detecting": "Detecting...",
     "autoClaudePath": "Aperant Path",
     "autoClaudePathDescription": "Relative path to auto-claude directory in projects",
     "autoClaudePathPlaceholder": "auto-claude (default)",
@@ -351,11 +358,91 @@
     "rerunWizardDescription": "Start the setup wizard again"
   },
   "projectSections": {
+    "agentSettings": {
+      "title": "Effective Agent Settings",
+      "description": "Project-specific model and thinking overrides",
+      "integrationTitle": "Effective Agent Settings",
+      "integrationDescription": "Edit the agent models, thinking levels, and provenance for this project",
+      "phaseModelSource": "Phase model source",
+      "phaseThinkingSource": "Phase thinking source",
+      "featureModelSource": "Feature model source",
+      "featureThinkingSource": "Feature thinking source",
+      "phaseOverrides": "Phase overrides",
+      "featureOverrides": "Feature overrides",
+      "providerJson": "Provider-specific overrides JSON",
+      "providerJsonDescription": "Advanced escape hatch for providerAgentConfig, including provider-specific phase, feature, and category mappings.",
+      "mixedProfileActive": "Use mixed phase/feature provider config",
+      "mixedProfileDescription": "When enabled, this project uses the mixed provider assignments below before global defaults.",
+      "mixedPhaseJson": "Mixed phase config JSON",
+      "mixedFeatureJson": "Mixed feature config JSON",
+      "projectProvider": "Project default provider",
+      "inheritProvider": "Use app provider priority",
+      "invalidProviderJson": "Invalid provider override JSON",
+      "invalidMixedJson": "Invalid mixed config JSON",
+      "sourceLabels": {
+        "taskSnapshot": "Task snapshot",
+        "crossProviderOverride": "Cross-provider override",
+        "projectOverride": "Project override",
+        "perProviderOverride": "Per-provider override",
+        "globalAdvancedOverride": "Global advanced override",
+        "providerDefault": "Provider default",
+        "globalPreset": "Global preset",
+        "builtInDefault": "Built-in default"
+      },
+      "features": {
+        "insights": "Insights",
+        "ideation": "Ideation",
+        "roadmap": "Roadmap",
+        "githubIssues": "GitHub Issues",
+        "githubPrs": "GitHub PRs",
+        "utility": "Utility",
+        "naming": "Naming"
+      },
+      "thinkingLevels": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "xhigh": "Extra High"
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "description": "Project configuration status",
+      "integrationTitle": "Diagnostics",
+      "integrationDescription": "Inspect project paths and environment configuration",
+      "projectPath": "Project path",
+      "autoBuildPath": "Aperant path",
+      "envLoaded": "Environment loaded",
+      "notInitialized": "Not initialized",
+      "yes": "Yes",
+      "no": "No"
+    },
     "general": {
       "title": "General",
       "description": "Auto-Build and agent config",
+      "integrationDescriptionWithProject": "Configure Auto-Build, agent model, and notifications for {{projectName}}",
+      "autoBuildIntegration": "Auto-Build Integration",
+      "notInitialized": "Not initialized",
+      "notInitializedDescription": "Initialize Auto-Build to enable task creation and agent workflows.",
+      "initializing": "Initializing...",
+      "initializeAutoBuild": "Initialize Auto-Build",
+      "initialized": "Initialized",
+      "checkingStatus": "Checking status...",
+      "agentConfiguration": "Agent Configuration",
+      "notifications": "Notifications",
+      "onTaskComplete": "On task complete",
+      "onTaskFailed": "On task failed",
+      "onReviewNeeded": "On review needed",
+      "sound": "Sound",
+      "initializeFirst": "Initialize Auto-Build first to configure {{title}}",
       "useClaudeMd": "Use CLAUDE.md",
-      "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context"
+      "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context",
+      "agentOverrides": "Agent model settings",
+      "agentOverridesInherited": "Inherited from global defaults. Use Settings → Agent Settings to edit the defaults shared by all projects.",
+      "agentOverridesProject": "Override for this project. New tasks and project-scoped AI features use this project's agent settings first.",
+      "overrideForProject": "Override for this project",
+      "removeAgentOverride": "Remove project override",
+      "projectAgentProfile": "Project agent profile"
     },
     "claude": {
       "title": "Claude Auth",
@@ -366,7 +453,28 @@
       "description": "Linear integration",
       "integrationTitle": "Linear Integration",
       "integrationDescription": "Connect to Linear for issue tracking and task import",
-      "syncDescription": "Sync with Linear for issue tracking"
+      "syncDescription": "Sync with Linear for issue tracking",
+      "enableSync": "Enable Linear Sync",
+      "enableSyncDescription": "Create and update Linear issues automatically",
+      "apiKey": "API Key",
+      "getApiKeyFrom": "Get your API key from",
+      "linearSettings": "Linear Settings",
+      "connectionStatus": "Connection Status",
+      "checking": "Checking...",
+      "connected": "Connected",
+      "connectedToTeam": "Connected to {{teamName}}",
+      "notConnected": "Not connected",
+      "tasksAvailable": "{{count}}+ tasks available to import",
+      "importExistingTasks": "Import Existing Tasks",
+      "importExistingTasksDescription": "Select which Linear issues to import into AutoBuild as tasks.",
+      "importTasksFromLinear": "Import Tasks from Linear",
+      "realtimeSync": "Real-time Sync",
+      "realtimeSyncDescription": "Automatically import new tasks created in Linear",
+      "realtimeSyncWarning": "When enabled, new Linear issues will be automatically imported into AutoBuild. Make sure to configure your team/project filters below to control which issues are imported.",
+      "teamIdOptional": "Team ID (Optional)",
+      "projectIdOptional": "Project ID (Optional)",
+      "autoDetected": "Auto-detected",
+      "autoCreated": "Auto-created"
     },
     "github": {
       "title": "GitHub",
@@ -374,6 +482,44 @@
       "integrationTitle": "GitHub Integration",
       "integrationDescription": "Connect to GitHub for issue tracking",
       "syncDescription": "Sync with GitHub Issues",
+      "enableIssues": "Enable GitHub Issues",
+      "enableIssuesDescription": "Sync issues from GitHub and create tasks automatically",
+      "connectedViaCli": "Connected via GitHub CLI",
+      "authenticatedAs": "Authenticated as {{username}}",
+      "authenticatedViaOAuth": "Authenticated via GitHub OAuth (gh CLI)",
+      "projectSpecificConfiguration": "Project-Specific Configuration",
+      "projectSpecificConfigurationPrefix": "This GitHub repository is configured only for",
+      "projectSpecificConfigurationSuffix": "Each project can have its own GitHub repository.",
+      "useDifferentToken": "Use Different Token",
+      "authentication": "GitHub Authentication",
+      "useManualToken": "Use Manual Token",
+      "personalAccessToken": "Personal Access Token",
+      "tokenPlaceholder": "ghp_xxxxxxxx or github_pat_xxxxxxxx",
+      "useOAuthInstead": "Use OAuth Instead",
+      "createTokenWithRepoScope": "Create a token with",
+      "scopeFrom": "scope from",
+      "githubSettings": "GitHub Settings",
+      "failedToLoadBranches": "Failed to load branches",
+      "failedToLoadRepositories": "Failed to load repositories",
+      "repository": "Repository",
+      "repositoryPlaceholder": "owner/repository",
+      "enterManually": "Enter Manually",
+      "loadingRepositories": "Loading repositories...",
+      "selectRepository": "Select a repository...",
+      "searchRepositories": "Search repositories...",
+      "noMatchingRepositories": "No matching repositories",
+      "noRepositoriesFound": "No repositories found",
+      "selectedRepository": "Selected:",
+      "repositoryFormat": "Format:",
+      "repositoryExample": "(e.g., facebook/react)",
+      "connectionStatus": "Connection Status",
+      "checking": "Checking...",
+      "connectedToRepo": "Connected to {{repo}}",
+      "notConnected": "Not connected",
+      "issuesAvailable": "Issues Available",
+      "issuesAvailableDescription": "Access GitHub Issues from the sidebar to view, investigate, and create tasks from issues.",
+      "autoSyncOnLoad": "Auto-Sync on Load",
+      "autoSyncOnLoadDescription": "Automatically fetch issues when the project loads",
       "defaultBranch": {
         "label": "Default Branch",
         "description": "Base branch for creating task worktrees",
@@ -382,6 +528,11 @@
         "noBranchesFound": "No branches found",
         "selectedBranchHelp": "All new tasks will branch from {{branch}}"
       },
+      "mainBranchDescription": "The base branch for creating task worktrees. All new tasks will branch from here.",
+      "loadingBranches": "Loading branches...",
+      "selectMainBranch": "Select main branch",
+      "tasksCreatedOnBranchesLike": "Tasks will be created on branches like",
+      "fromBranch": "from",
       "pushNewBranches": {
         "label": "Automatically Push New Branches",
         "description": "Push new task and worktree branches to GitHub and set upstream tracking automatically"
@@ -399,14 +550,61 @@
       "description": "Graphiti memory backend",
       "integrationTitle": "Memory",
       "integrationDescription": "Configure persistent cross-session memory for agents",
-      "syncDescription": "Configure persistent memory"
+      "syncDescription": "Configure persistent memory",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "enableMemory": "Enable Memory",
+      "enableMemoryDescription": "Persistent cross-session memory using LadybugDB (embedded database)",
+      "fileBasedMemoryDescription": "Using file-based memory. Session insights are stored locally in JSON files. Enable Memory for persistent cross-session context with semantic search.",
+      "embeddingProvider": "Embedding Provider",
+      "embeddingProviderDescription": "Provider for semantic search (optional - keyword search works without)",
+      "selectEmbeddingProvider": "Select embedding provider",
+      "providers": {
+        "ollama": "Ollama (Local - Free)",
+        "openai": "OpenAI",
+        "voyage": "Voyage AI",
+        "google": "Google AI",
+        "azureOpenAI": "Azure OpenAI"
+      },
+      "openaiApiKey": "OpenAI API Key",
+      "overrideSuffix": "(Override)",
+      "usingGlobalKey": "Using global key",
+      "usingGlobalKeyDescription": "Using key from App Settings. Enter a project-specific key below to override.",
+      "requiredForOpenAIEmbeddings": "Required for OpenAI embeddings",
+      "overrideGlobalKeyPlaceholder": "Enter to override global key...",
+      "hideProviderApiKey": "Hide {{provider}} API key",
+      "showProviderApiKey": "Show {{provider}} API key",
+      "getKeyFrom": "Get your key from",
+      "voyageApiKey": "Voyage AI API Key",
+      "requiredForVoyageEmbeddings": "Required for Voyage AI embeddings",
+      "embeddingModelOptional": "Embedding Model (optional)",
+      "googleApiKey": "Google AI API Key",
+      "requiredForGoogleEmbeddings": "Required for Google AI embeddings",
+      "azureOpenAIConfiguration": "Azure OpenAI Configuration",
+      "apiKey": "API Key",
+      "azureApiKeyPlaceholder": "Azure API Key",
+      "baseUrl": "Base URL",
+      "embeddingDeploymentName": "Embedding Deployment Name",
+      "selectEmbeddingModel": "Select Embedding Model",
+      "databaseName": "Database Name",
+      "databaseNameDescription": "Stored in ~/.auto-claude/memories/",
+      "databaseNameDetailedDescription": "Name for the memory database (stored in ~/.auto-claude/memories/)",
+      "databasePathOptional": "Database Path (Optional)",
+      "databasePathDescription": "Custom storage location. Default: ~/.auto-claude/memories/"
+    },
+    "mcp": {
+      "title": "MCP Servers",
+      "description": "Project-scoped agent tools",
+      "integrationTitle": "MCP Servers",
+      "integrationDescription": "Configure MCP server enablement and agent access for this project",
+      "syncDescription": "Configure project MCP servers"
     }
   },
   "agentProfile": {
     "label": "Agent Profile",
     "title": "Default Agent Profile",
     "sectionDescription": "Select a preset configuration for model and thinking level",
-    "profilesInfo": "Agent profiles provide preset configurations for Claude model and thinking level. When you create a new task, these settings will be used as defaults. You can always override them in the task creation wizard.",
+    "profilesInfo": "Agent profiles provide preset thinking-level configurations for the selected base model. When you create a new task, these settings will be used as defaults. You can always override them in the task creation wizard.",
     "custom": "Custom",
     "customConfiguration": "Custom Configuration",
     "customDescription": "Choose model & thinking level",
@@ -424,6 +622,32 @@
     "customized": "Customized",
     "ollamaNotConfigured": "Select models below",
     "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
+    "profiles": {
+      "auto": {
+        "name": "Auto (Optimized)"
+      },
+      "complex": {
+        "name": "Complex Tasks"
+      },
+      "balanced": {
+        "name": "Balanced"
+      },
+      "quick": {
+        "name": "Quick Edits"
+      }
+    },
+    "simpleBaseModel": {
+      "label": "Base model",
+      "description": "Simple mode applies the selected profile's thinking levels to this model across phases and features.",
+      "resetToLatest": "Use latest default"
+    },
+    "mode": {
+      "label": "Settings mode",
+      "simple": "Simple",
+      "simpleDescription": "Preset profiles only",
+      "advanced": "Advanced",
+      "advancedDescription": "Role and feature controls"
+    },
     "adaptiveThinking": {
       "badge": "Adaptive",
       "tooltip": "Opus uses adaptive thinking — it dynamically decides how much to think within the budget cap set by the thinking level."
@@ -479,6 +703,11 @@
       "moreProviders": "More",
       "noProviders": "No providers connected. Add accounts in the Accounts settings to configure provider-specific agent settings.",
       "configureFor": "Configure agent settings for {{provider}}",
+      "defaultBadge": "Default",
+      "defaultProviderDescription": "This provider is first in the account priority queue, so new agent runs use these defaults.",
+      "notDefaultProviderDescription": "These settings are saved, but new agent runs use the current default provider until you make this provider default.",
+      "makeDefault": "Make default provider",
+      "currentDefault": "Current Default",
       "crossProvider": "Cross-Provider",
       "crossProviderDisabledTooltip": "Connect two or more provider accounts to enable cross-provider capabilities",
       "needsSetup": "Setup required"
@@ -508,6 +737,30 @@
       "refresh": "Refresh",
       "loading": "Loading models...",
       "ollamaNotAvailable": "Connect Ollama in Account Settings to manage models"
+    },
+    "ollamaCategories": {
+      "title": "Ollama role models",
+      "description": "Assign installed local models to the agent roles Aperant uses at runtime.",
+      "reasoningHeavy": {
+        "label": "Reasoning-heavy",
+        "description": "Spec creation, planning, ideation, and roadmap generation"
+      },
+      "coding": {
+        "label": "Coding",
+        "description": "Implementation and code-editing agents"
+      },
+      "review": {
+        "label": "Review",
+        "description": "QA review, GitHub issue triage, and PR review"
+      },
+      "fastUtility": {
+        "label": "Fast utility",
+        "description": "Commit messages, merge utilities, and naming"
+      },
+      "chat": {
+        "label": "Chat",
+        "description": "Insights chat and interactive codebase questions"
+      }
     }
   },
   "workspace": {
@@ -875,13 +1128,18 @@
     }
   },
   "mcp": {
-    "title": "MCP Server Overview",
-    "titleWithProject": "MCP Server Overview for {{projectName}}",
-    "description": "Configure which MCP servers are available for agents in this project",
-    "descriptionNoProject": "Select a project to configure MCP servers",
+    "title": "MCP Servers",
+    "titleWithProject": "MCP Servers for {{projectName}}",
+    "description": "Manage global MCP server definitions and choose which servers are available to agents in this project",
+    "descriptionNoProject": "Select a project to configure project MCP enablement",
+    "editGlobalDefaults": "Edit global defaults",
+    "globalDefaultsTitle": "Global MCP server definitions",
+    "globalDefaultsDescription": "Create and edit reusable custom MCP servers. Projects choose which definitions to enable from their Project Settings MCP page.",
     "serversEnabled": "{{count}} servers enabled",
     "configuration": "MCP Server Configuration",
     "configurationHint": "Disabled servers reduce context usage and startup time",
+    "modelSummaryTitle": "Resolved agent models are read-only here",
+    "modelSummaryDescription": "The model badges below reflect the current default provider ({{provider}}). Change the default provider or per-agent models in Settings → Agent Settings.",
     "noProjectSelected": "No Project Selected",
     "noProjectSelectedDescription": "Select a project from the dropdown to view and configure MCP servers.",
     "projectNotInitialized": "Project Not Initialized",
@@ -898,6 +1156,16 @@
     "restore": "Restore",
     "noMcpServers": "No MCP servers",
     "cannotRemove": "Cannot remove (required)",
+    "toggleServer": "Toggle {{server}} MCP server",
+    "agentCount": "({{count}} agents)",
+    "healthCheckFailed": "Health check failed",
+    "connectionTestFailed": "Connection test failed",
+    "agentCard": {
+      "mcpServers": "MCP Servers",
+      "availableTools": "Available Tools",
+      "textOnly": "Text-only (no tools)",
+      "mcpCount": "{{count}} MCP"
+    },
     "servers": {
       "context7": {
         "name": "Context7",
@@ -921,12 +1189,26 @@
         "name": "Puppeteer",
         "description": "Web browser automation for testing"
       },
+      "serena": {
+        "name": "Serena",
+        "description": "Semantic codebase tools powered by Serena MCP"
+      },
       "autoClaude": {
         "name": "Aperant Tools",
         "description": "Build progress tracking"
       }
     },
+    "builtinDefaultsTitle": "Built-in Defaults",
+    "builtinDefaultsDescription": "Choose which built-in MCP servers are enabled by default for agent sessions. Project settings can still override project-specific servers.",
+    "serenaLaunchWebUi": "Launch Serena web UI",
+    "serenaLaunchWebUiDescription": "Disable this to start Serena MCP without its dashboard/web interface.",
     "customServers": "Custom Servers",
+    "customServer": "Custom",
+    "globalServer": "Global server",
+    "projectServer": "Project server",
+    "projectEnabled": "Project enabled",
+    "projectOverride": "Project override",
+    "disabledInherited": "Disabled inherited",
     "addCustomServer": "Add Custom Server",
     "editCustomServer": "Edit Custom Server",
     "customServerDescription": "Add a command-based or HTTP-based MCP server",

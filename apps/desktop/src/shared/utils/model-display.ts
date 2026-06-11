@@ -9,6 +9,10 @@
 import { ALL_AVAILABLE_MODELS, AVAILABLE_MODELS, resolveModelEquivalent } from '../constants/models';
 import type { BuiltinProvider } from '../types/provider-account';
 
+export function formatRawModelLabel(modelValue: string): string {
+  return modelValue.replace(/^gpt-/i, 'GPT-');
+}
+
 /**
  * Get a human-readable model label for a given shorthand and provider.
  *
@@ -46,5 +50,5 @@ export function getProviderModelLabel(
   const defaultLabel = AVAILABLE_MODELS.find(m => m.value === modelShorthand);
   if (defaultLabel) return defaultLabel.label;
 
-  return modelShorthand;
+  return formatRawModelLabel(modelShorthand);
 }

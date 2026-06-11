@@ -19,7 +19,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createXai } from '@ai-sdk/xai';
 import { createProviderRegistry } from 'ai';
 import type { LanguageModel } from 'ai';
-import type { ProviderV3 } from '@ai-sdk/provider';
+import type { Provider } from 'ai';
 
 import { type ProviderConfig, SupportedProvider } from './types';
 
@@ -122,7 +122,7 @@ function createProviderSDKInstance(
  * @returns A provider registry instance
  */
 export function buildRegistry(config: RegistryConfig) {
-  const providers: Record<string, ProviderV3> = {};
+  const providers: Record<string, any> = {};
 
   for (const [providerKey, providerConfig] of Object.entries(config.providers)) {
     if (providerConfig) {
@@ -131,7 +131,7 @@ export function buildRegistry(config: RegistryConfig) {
       providers[providerKey] = createProviderSDKInstance(
         providerKey as SupportedProvider,
         providerConfig,
-      ) as ProviderV3;
+      );
     }
   }
 

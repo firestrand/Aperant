@@ -1,6 +1,6 @@
-# Auto Claude Guides
+# Aperant Guides
 
-Detailed documentation for Auto Claude setup and usage.
+Detailed documentation for Aperant setup and usage.
 
 ## Available Guides
 

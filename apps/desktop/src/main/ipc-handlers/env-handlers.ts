@@ -96,6 +96,9 @@ export function registerEnvHandlers(
     if (config.memoryEnabled !== undefined) {
       existingVars['GRAPHITI_ENABLED'] = config.memoryEnabled ? 'true' : 'false';
     }
+    if (config.memoryMcpUrl !== undefined) {
+      existingVars['GRAPHITI_MCP_URL'] = config.memoryMcpUrl;
+    }
     // Memory Provider Configuration (embeddings only - LLM uses Claude SDK)
     if (config.memoryProviderConfig) {
       const pc = config.memoryProviderConfig;
@@ -260,6 +263,8 @@ ${existingVars['CUSTOM_MCP_SERVERS'] ? `CUSTOM_MCP_SERVERS=${existingVars['CUSTO
 # Embedding providers: OpenAI, Google AI, Azure OpenAI, Ollama, Voyage
 # =============================================================================
 ${existingVars['GRAPHITI_ENABLED'] ? `GRAPHITI_ENABLED=${existingVars['GRAPHITI_ENABLED']}` : '# GRAPHITI_ENABLED=true'}
+# Optional MCP endpoint for the Graphiti memory server used by agents
+${existingVars['GRAPHITI_MCP_URL'] ? `GRAPHITI_MCP_URL=${existingVars['GRAPHITI_MCP_URL']}` : '# GRAPHITI_MCP_URL=http://127.0.0.1:8000/mcp'}
 
 # Embedding Provider (for semantic search - optional, keyword search works without)
 ${existingVars['GRAPHITI_EMBEDDER_PROVIDER'] ? `GRAPHITI_EMBEDDER_PROVIDER=${existingVars['GRAPHITI_EMBEDDER_PROVIDER']}` : '# GRAPHITI_EMBEDDER_PROVIDER=ollama'}
@@ -391,8 +396,11 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         config.defaultBranch = vars['DEFAULT_BRANCH'];
       }
 
-      if (vars['GRAPHITI_ENABLED']?.toLowerCase() === 'true') {
-        config.memoryEnabled = true;
+      if (vars['GRAPHITI_ENABLED'] !== undefined) {
+        config.memoryEnabled = vars['GRAPHITI_ENABLED'].toLowerCase() === 'true';
+      }
+      if (vars['GRAPHITI_MCP_URL']) {
+        config.memoryMcpUrl = vars['GRAPHITI_MCP_URL'];
       }
 
       // OpenAI API Key: project-specific takes precedence, then global
@@ -444,15 +452,24 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         };
       }
 
-      // MCP Server Configuration (per-project overrides)
-      // Default: context7=true, linear=true (if API key set), electron/puppeteer=false
-      config.mcpServers = {
-        context7Enabled: vars['CONTEXT7_ENABLED']?.toLowerCase() !== 'false', // default true
-        memoryEnabled: config.memoryEnabled, // follows GRAPHITI_ENABLED
-        linearMcpEnabled: vars['LINEAR_MCP_ENABLED']?.toLowerCase() !== 'false', // default true
-        electronEnabled: vars['ELECTRON_MCP_ENABLED']?.toLowerCase() === 'true', // default false
-        puppeteerEnabled: vars['PUPPETEER_MCP_ENABLED']?.toLowerCase() === 'true', // default false
-      };
+      // MCP Server Configuration (per-project overrides only).
+      // Undefined means inherit the app/default behavior in the renderer/runtime.
+      config.mcpServers = {};
+      if (vars['CONTEXT7_ENABLED'] !== undefined) {
+        config.mcpServers.context7Enabled = vars['CONTEXT7_ENABLED'].toLowerCase() === 'true';
+      }
+      if (vars['GRAPHITI_ENABLED'] !== undefined) {
+        config.mcpServers.memoryEnabled = config.memoryEnabled;
+      }
+      if (vars['LINEAR_MCP_ENABLED'] !== undefined) {
+        config.mcpServers.linearMcpEnabled = vars['LINEAR_MCP_ENABLED'].toLowerCase() === 'true';
+      }
+      if (vars['ELECTRON_MCP_ENABLED'] !== undefined) {
+        config.mcpServers.electronEnabled = vars['ELECTRON_MCP_ENABLED'].toLowerCase() === 'true';
+      }
+      if (vars['PUPPETEER_MCP_ENABLED'] !== undefined) {
+        config.mcpServers.puppeteerEnabled = vars['PUPPETEER_MCP_ENABLED'].toLowerCase() === 'true';
+      }
 
       // Parse per-agent MCP overrides (AGENT_MCP_<agent>_ADD/REMOVE)
       const agentMcpOverrides: Record<string, { add?: string[]; remove?: string[] }> = {};

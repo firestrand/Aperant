@@ -9,8 +9,9 @@
 import type { LanguageModel } from 'ai';
 import type { Tool as AITool } from 'ai';
 
-import type { AgentType } from '../config/agent-configs';
+import type { AgentType, McpServerResolveOptions } from '../config/agent-configs';
 import type { ModelShorthand, Phase, ThinkingLevel } from '../config/types';
+import type { McpRegistryOptions } from '../mcp/registry';
 import type { McpClientResult } from '../mcp/types';
 import type { ToolContext } from '../tools/types';
 import type { QueueResolvedAuth } from '../auth/types';
@@ -46,6 +47,10 @@ export interface AgentClientConfig {
   abortSignal?: AbortSignal;
   /** Additional custom MCP server IDs to enable */
   additionalMcpServers?: string[];
+  /** Project/global MCP resolution options for this agent run */
+  mcpOptions?: McpServerResolveOptions;
+  /** Project/global MCP registry connection options for this agent run */
+  mcpRegistryOptions?: McpRegistryOptions;
   /** Optional queue-based resolution config (if provided, uses global priority queue instead of per-provider auth) */
   queueConfig?: {
     queue: ProviderAccount[];

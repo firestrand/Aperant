@@ -221,6 +221,11 @@ const browserMockAPI: ElectronAPI = {
     data: { success: true }
   }),
 
+  listProviderModels: async (_provider: string, _config) => ({
+    success: true,
+    data: { models: [] }
+  }),
+
   checkEnvCredentials: async () => ({
     success: true,
     data: {}
@@ -241,7 +246,23 @@ const browserMockAPI: ElectronAPI = {
     success: true
   }),
 
+  // Google OAuth authentication (mock)
+  googleAuthLogin: async () => ({
+    success: false,
+    error: 'Google OAuth not available in browser mock'
+  }),
+
+  googleAuthStatus: async () => ({
+    success: true,
+    data: { isAuthenticated: false }
+  }),
+
+  googleAuthLogout: async () => ({
+    success: true
+  }),
+
   // GitHub API
+
   github: {
     getGitHubRepositories: async () => ({ success: true, data: [] }),
     getGitHubIssues: async () => ({ success: true, data: { issues: [], hasMore: false } }),

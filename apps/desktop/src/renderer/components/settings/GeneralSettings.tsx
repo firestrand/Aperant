@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
 import { ProviderAgentTabs } from './ProviderAgentTabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import type {
   AppSettings,
   ToolDetectionResult
@@ -30,7 +31,7 @@ function ToolDetectionDisplay({ info, isLoading, t }: ToolDetectionDisplayProps)
   if (isLoading) {
     return (
       <div className="text-xs text-muted-foreground mt-1">
-        Detecting...
+        {t('general.detecting')}
       </div>
     );
   }
@@ -125,17 +126,26 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             <div className="space-y-3">
               <Label htmlFor="agentFramework" className="text-sm font-medium text-foreground">{t('general.agentFramework')}</Label>
               <p className="text-sm text-muted-foreground">{t('general.agentFrameworkDescription')}</p>
-              <Select
-                value={settings.agentFramework}
-                onValueChange={(value) => onSettingsChange({ ...settings, agentFramework: value })}
-              >
-                <SelectTrigger id="agentFramework" className="w-full max-w-md">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="auto-claude">{t('general.agentFrameworkAutoClaude')}</SelectItem>
-                </SelectContent>
-              </Select>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="w-full max-w-md">
+                    <Select value={settings.agentFramework} disabled>
+                      <SelectTrigger id="agentFramework" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="auto-claude">{t('general.agentFrameworkAutoClaude')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">
+                  {t('general.agentFrameworkDisabledTooltip')}
+                </TooltipContent>
+              </Tooltip>
+              <p className="text-xs text-muted-foreground max-w-md">
+                {t('general.agentFrameworkDisabledHelp')}
+              </p>
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between max-w-md">

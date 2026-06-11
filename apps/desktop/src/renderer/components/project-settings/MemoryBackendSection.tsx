@@ -1,4 +1,5 @@
 import { Database } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from './CollapsibleSection';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
@@ -18,7 +19,7 @@ interface MemoryBackendSectionProps {
 /**
  * Memory Backend Section in project settings.
  * Uses the shared MemoryConfigPanel for embedding configuration.
- * Keeps Database Name/Path fields that are project-specific.
+ * Keeps project-specific database fields.
  */
 export function MemoryBackendSection({
   isExpanded,
@@ -27,6 +28,7 @@ export function MemoryBackendSection({
   onUpdateConfig,
   onUpdateSettings,
 }: MemoryBackendSectionProps) {
+  const { t } = useTranslation('settings');
   const pc = envConfig.memoryProviderConfig;
 
   // Map ProjectEnvConfig → MemoryPanelConfig
@@ -102,13 +104,13 @@ export function MemoryBackendSection({
           : 'bg-muted text-muted-foreground'
       }`}
     >
-      {envConfig.memoryEnabled ? 'Enabled' : 'Disabled'}
+      {envConfig.memoryEnabled ? t('projectSections.memory.enabled') : t('projectSections.memory.disabled')}
     </span>
   );
 
   return (
     <CollapsibleSection
-      title="Memory"
+      title={t('projectSections.memory.title')}
       icon={<Database className="h-4 w-4" />}
       isExpanded={isExpanded}
       onToggle={onToggle}
@@ -125,9 +127,9 @@ export function MemoryBackendSection({
           <Separator />
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Database Name</Label>
+            <Label className="text-sm font-medium text-foreground">{t('projectSections.memory.databaseName')}</Label>
             <p className="text-xs text-muted-foreground">
-              Name for the memory database (stored in ~/.auto-claude/memories/)
+              {t('projectSections.memory.databaseNameDetailedDescription')}
             </p>
             <Input
               placeholder="auto_claude_memory"
@@ -137,9 +139,9 @@ export function MemoryBackendSection({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">Database Path (Optional)</Label>
+            <Label className="text-sm font-medium text-foreground">{t('projectSections.memory.databasePathOptional')}</Label>
             <p className="text-xs text-muted-foreground">
-              Custom storage location. Default: ~/.auto-claude/memories/
+              {t('projectSections.memory.databasePathDescription')}
             </p>
             <Input
               placeholder="~/.auto-claude/memories"

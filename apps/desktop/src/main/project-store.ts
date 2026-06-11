@@ -32,6 +32,26 @@ interface TasksCacheEntry {
   timestamp: number;
 }
 
+function migrateProjectSettings(settings: ProjectSettings): ProjectSettings {
+  if (!settings.model || settings.projectAgentOverrides?.customPhaseModels) {
+    return settings;
+  }
+
+  const { model, ...rest } = settings;
+  return {
+    ...rest,
+    projectAgentOverrides: {
+      ...settings.projectAgentOverrides,
+      customPhaseModels: {
+        spec: model,
+        planning: model,
+        coding: model,
+        qa: model,
+      },
+    },
+  };
+}
+
 /**
  * Persistent storage for projects and settings
  */
@@ -68,6 +88,7 @@ export class ProjectStore {
           ...p,
           // Ensure project.path is always absolute (critical for dev mode path resolution)
           path: ensureAbsolutePath(p.path),
+          settings: migrateProjectSettings(p.settings),
           createdAt: new Date(p.createdAt),
           updatedAt: new Date(p.updatedAt)
         }));

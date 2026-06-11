@@ -8,7 +8,7 @@ import { is } from '@electron-toolkit/utils';
 // ESM-compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE, sanitizeThinkingLevel, VALID_THINKING_LEVELS } from '../../shared/constants';
+import { IPC_CHANNELS, DEFAULT_APP_SETTINGS, DEFAULT_AGENT_PROFILES, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE, sanitizeThinkingLevel, VALID_THINKING_LEVELS, buildProviderDefaultFeatureThinking, buildProviderDefaultPhaseModels, buildProviderDefaultPhaseThinking, buildSimpleModeFeatureModels, getProviderPresetOrFallback } from '../../shared/constants';
 import { setAppLanguage } from '../app-language';
 import type {
   AppSettings,
@@ -20,13 +20,45 @@ import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-upd
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { resetMemoryService } from './context/memory-service-factory';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
-import type { ProviderAccount } from '../../shared/types/provider-account';
+import type { BuiltinProvider, ProviderAccount } from '../../shared/types/provider-account';
 import type { APIProfile } from '../../shared/types/profile';
 import type { ClaudeProfile } from '../../shared/types/agent';
 import { loadProfilesFile } from '../utils/profile-manager';
 import { loadProfileStore } from '../claude-profile/profile-storage';
 
 const settingsPath = getSettingsPath();
+
+export function migrateToPerProviderAgentConfig(settings: AppSettings): { changed: boolean; settings: AppSettings } {
+  if (settings._migratedToPerProviderConfig) {
+    return { changed: false, settings };
+  }
+
+  const connected = new Set((settings.providerAccounts ?? []).map((account: ProviderAccount) => account.provider));
+  if (connected.size > 0) {
+    const perProvider: typeof settings.providerAgentConfig = { ...settings.providerAgentConfig };
+    const selectedProfile = settings.selectedAgentProfile ?? 'auto';
+    for (const provider of connected) {
+      const existingProviderConfig = perProvider[provider];
+      const providerSelectedProfile = existingProviderConfig?.selectedAgentProfile ?? selectedProfile;
+      const simpleBaseModel = existingProviderConfig?.simpleBaseModel
+        ?? getProviderPresetOrFallback(provider, providerSelectedProfile).primaryModel;
+      perProvider[provider] = {
+        ...existingProviderConfig,
+        mode: existingProviderConfig?.mode ?? 'simple',
+        selectedAgentProfile: providerSelectedProfile,
+        simpleBaseModel,
+        customPhaseModels: existingProviderConfig?.customPhaseModels ?? buildProviderDefaultPhaseModels(provider, providerSelectedProfile),
+        customPhaseThinking: existingProviderConfig?.customPhaseThinking ?? buildProviderDefaultPhaseThinking(provider, providerSelectedProfile),
+        featureModels: existingProviderConfig?.featureModels ?? buildSimpleModeFeatureModels(simpleBaseModel),
+        featureThinking: existingProviderConfig?.featureThinking ?? buildProviderDefaultFeatureThinking(provider),
+      };
+    }
+    settings.providerAgentConfig = perProvider;
+  }
+
+  settings._migratedToPerProviderConfig = true;
+  return { changed: true, settings };
+}
 
 async function migrateToProviderAccounts(settings: AppSettings): Promise<{ changed: boolean; settings: AppSettings }> {
   if (settings._migratedProviderAccounts) {
@@ -346,30 +378,18 @@ export function registerSettingsHandlers(
         needsSave = true;
       }
 
-      // Migration: Copy global agent config to per-provider config
-      if (!settings._migratedToPerProviderConfig) {
-        const connected = new Set((settings.providerAccounts ?? []).map((a: ProviderAccount) => a.provider));
-        if (connected.size > 0) {
-          const perProvider: typeof settings.providerAgentConfig = {};
-          for (const provider of connected) {
-            perProvider[provider] = {
-              selectedAgentProfile: settings.selectedAgentProfile,
-              customPhaseModels: settings.customPhaseModels,
-              customPhaseThinking: settings.customPhaseThinking,
-              featureModels: settings.featureModels,
-              featureThinking: settings.featureThinking,
-            };
-          }
-          settings.providerAgentConfig = perProvider;
-        }
-        settings._migratedToPerProviderConfig = true;
-        needsSave = true;
-      }
-
       // Migration: Convert legacy global API keys, APIProfiles, and ClaudeProfiles to ProviderAccount entries
       const providerAccountsMigration = await migrateToProviderAccounts(settings);
       if (providerAccountsMigration.changed) {
         Object.assign(settings, providerAccountsMigration.settings);
+        needsSave = true;
+      }
+
+      // Migration: Initialize per-provider agent config with provider-native defaults.
+      // Do this after account migration so OpenAI-only setups do not inherit Claude shorthands.
+      const perProviderMigration = migrateToPerProviderAgentConfig(settings);
+      if (perProviderMigration.changed) {
+        Object.assign(settings, perProviderMigration.settings);
         needsSave = true;
       }
 
@@ -931,8 +951,8 @@ export function registerSettingsHandlers(
     IPC_CHANNELS.PROVIDER_ACCOUNTS_SAVE,
     async (_event, account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<IPCResult<ProviderAccount>> => {
       try {
-        const settings = readSettingsFile() ?? {};
-        const accounts: ProviderAccount[] = (settings.providerAccounts as ProviderAccount[] | undefined) ?? [];
+        const settings = (readSettingsFile() ?? {}) as unknown as AppSettings;
+        const accounts: ProviderAccount[] = settings.providerAccounts ?? [];
 
         // Prevent duplicate: same email + provider already registered
         if (account.email) {
@@ -957,10 +977,29 @@ export function registerSettingsHandlers(
         accounts.push(newAccount);
         settings.providerAccounts = accounts;
 
-        // Add to globalPriorityOrder — prepend so new account becomes active
+        // Add to globalPriorityOrder — prepend so new account becomes the explicit default.
         const queue: string[] = (settings.globalPriorityOrder as string[] | undefined) ?? [];
         queue.unshift(newAccount.id);
         settings.globalPriorityOrder = queue;
+
+        const selectedProfile = settings.selectedAgentProfile ?? 'auto';
+        const existingProviderConfig = settings.providerAgentConfig?.[newAccount.provider];
+        const providerSelectedProfile = existingProviderConfig?.selectedAgentProfile ?? selectedProfile;
+        const simpleBaseModel = existingProviderConfig?.simpleBaseModel
+          ?? getProviderPresetOrFallback(newAccount.provider, providerSelectedProfile).primaryModel;
+        settings.providerAgentConfig = {
+          ...settings.providerAgentConfig,
+          [newAccount.provider]: {
+            ...existingProviderConfig,
+            mode: existingProviderConfig?.mode ?? 'simple',
+            selectedAgentProfile: providerSelectedProfile,
+            simpleBaseModel,
+            customPhaseModels: existingProviderConfig?.customPhaseModels ?? buildProviderDefaultPhaseModels(newAccount.provider, providerSelectedProfile),
+            customPhaseThinking: existingProviderConfig?.customPhaseThinking ?? buildProviderDefaultPhaseThinking(newAccount.provider, providerSelectedProfile),
+            featureModels: existingProviderConfig?.featureModels ?? buildSimpleModeFeatureModels(simpleBaseModel),
+            featureThinking: existingProviderConfig?.featureThinking ?? buildProviderDefaultFeatureThinking(newAccount.provider),
+          },
+        };
 
         const settingsPath = getSettingsPath();
         writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
@@ -1102,6 +1141,33 @@ export function registerSettingsHandlers(
     async (_event, _provider: string, _config: { apiKey?: string; baseUrl?: string; region?: string }): Promise<IPCResult<{ success: boolean; error?: string }>> => {
       // Basic stub - connection testing can be enhanced later per-provider
       return { success: true, data: { success: true } };
+    }
+  );
+
+  // LIST MODELS for a provider account
+  ipcMain.handle(
+    IPC_CHANNELS.PROVIDER_ACCOUNTS_LIST_MODELS,
+    async (
+      _event,
+      provider: string,
+      config: {
+        apiKey?: string;
+        authType?: 'oauth' | 'api-key';
+        oauthTokenFilePath?: string;
+        baseUrl?: string;
+      }
+    ): Promise<IPCResult<{ models: Array<{ id: string; display_name: string }> }>> => {
+      try {
+        const { modelDiscoveryService } = await import('../services/model-discovery-service');
+        const models = await modelDiscoveryService.listModels(provider as BuiltinProvider, config);
+        return { success: true, data: { models } };
+      } catch (error) {
+        console.error('[PROVIDER_ACCOUNTS_LIST_MODELS] Error:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to list models',
+        };
+      }
     }
   );
 

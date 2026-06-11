@@ -20,8 +20,8 @@ import { getActiveProviderFeatureSettings } from "../feature-settings-helper";
 /**
  * Read ideation feature settings using per-provider resolution
  */
-function getIdeationFeatureSettings(): { model?: string; thinkingLevel?: string } {
-  return getActiveProviderFeatureSettings('ideation');
+function getIdeationFeatureSettings(projectOverrides?: import('../../../shared/types/project').ProjectAgentOverrides): { model?: string; thinkingLevel?: string } {
+  return getActiveProviderFeatureSettings('ideation', projectOverrides);
 }
 
 /**
@@ -34,8 +34,17 @@ export function startIdeationGeneration(
   agentManager: AgentManager,
   mainWindow: BrowserWindow | null
 ): void {
+  const getMainWindow = () => mainWindow;
+
+  const project = projectStore.getProject(projectId);
+  if (!project) {
+    debugLog("[Ideation Handler] Project not found:", projectId);
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.IDEATION_ERROR, projectId, "Project not found");
+    return;
+  }
+
   // Get feature settings and merge with config
-  const featureSettings = getIdeationFeatureSettings();
+  const featureSettings = getIdeationFeatureSettings(project.settings.projectAgentOverrides);
   const configWithSettings: IdeationConfig = {
     ...config,
     model: config.model || featureSettings.model,
@@ -49,15 +58,6 @@ export function startIdeationGeneration(
     model: configWithSettings.model,
     thinkingLevel: configWithSettings.thinkingLevel,
   });
-
-  const getMainWindow = () => mainWindow;
-
-  const project = projectStore.getProject(projectId);
-  if (!project) {
-    debugLog("[Ideation Handler] Project not found:", projectId);
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.IDEATION_ERROR, projectId, "Project not found");
-    return;
-  }
 
   debugLog("[Ideation Handler] Starting agent manager generation:", {
     projectId,

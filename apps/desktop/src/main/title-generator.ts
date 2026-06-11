@@ -3,6 +3,7 @@ import { streamText } from 'ai';
 import { createSimpleClient } from './ai/client/factory';
 import { getActiveProviderFeatureSettings } from './ipc-handlers/feature-settings-helper';
 import { safeBreadcrumb, safeCaptureException } from './sentry';
+import type { ProjectAgentOverrides } from '../shared/types/project';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -44,7 +45,7 @@ export class TitleGenerator extends EventEmitter {
    * @param description - The task description to generate a title from
    * @returns Promise resolving to the generated title or null on failure
    */
-  async generateTitle(description: string): Promise<string | null> {
+  async generateTitle(description: string, projectOverrides?: ProjectAgentOverrides): Promise<string | null> {
     const prompt = this.createTitlePrompt(description);
 
     debug('Generating title for description:', description.substring(0, 100) + '...');
@@ -60,7 +61,7 @@ export class TitleGenerator extends EventEmitter {
       // Read the user's configured naming model for their active provider.
       // This ensures we use the correct model for the active provider
       // (e.g., Codex models for OpenAI Codex OAuth, Gemini for Google, etc.)
-      const namingSettings = getActiveProviderFeatureSettings('naming');
+      const namingSettings = getActiveProviderFeatureSettings('naming', projectOverrides);
       debug('Using naming settings:', namingSettings.model, namingSettings.thinkingLevel);
 
       const client = await createSimpleClient({

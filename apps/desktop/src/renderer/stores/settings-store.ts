@@ -3,9 +3,84 @@ import type { AppSettings, PerProviderAgentConfig } from '../../shared/types';
 import type { APIProfile, ProfileFormData, TestConnectionResult, ModelInfo } from '@shared/types/profile';
 import type { BuiltinProvider, ProviderAccount } from '@shared/types/provider-account';
 import type { IPCResult } from '@shared/types/common';
-import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
+import {
+  DEFAULT_APP_SETTINGS,
+  buildProviderDefaultFeatureThinking,
+  buildProviderDefaultPhaseModels,
+  buildProviderDefaultPhaseThinking,
+  buildSimpleModeFeatureModels,
+  getProviderPresetOrFallback,
+} from '../../shared/constants';
 import { toast } from '../hooks/use-toast';
 import { markSettingsLoaded } from '../lib/sentry';
+
+export function createModelDiscoveryCacheKey(baseUrl: string, apiKey: string): string {
+  return `${baseUrl}::${apiKey.slice(-4)}`;
+}
+
+interface ProviderAccountSettingsState {
+  providerAccounts: ProviderAccount[];
+  settings: AppSettings;
+}
+
+export function addProviderAccountState(
+  state: ProviderAccountSettingsState,
+  newAccount: ProviderAccount,
+): ProviderAccountSettingsState {
+  const selectedProfile = state.settings.selectedAgentProfile ?? 'auto';
+  const existingProviderConfig = state.settings.providerAgentConfig?.[newAccount.provider];
+  const providerSelectedProfile = existingProviderConfig?.selectedAgentProfile ?? selectedProfile;
+  const simpleBaseModel = existingProviderConfig?.simpleBaseModel
+    ?? getProviderPresetOrFallback(newAccount.provider, providerSelectedProfile).primaryModel;
+
+  return {
+    providerAccounts: [...state.providerAccounts, newAccount],
+    settings: {
+      ...state.settings,
+      globalPriorityOrder: [newAccount.id, ...(state.settings.globalPriorityOrder ?? [])],
+      crossProviderPriorityOrder: state.settings.crossProviderPriorityOrder
+        ? [newAccount.id, ...state.settings.crossProviderPriorityOrder]
+        : undefined,
+      providerAgentConfig: {
+        ...state.settings.providerAgentConfig,
+        [newAccount.provider]: {
+          ...existingProviderConfig,
+          mode: existingProviderConfig?.mode ?? 'simple',
+          selectedAgentProfile: providerSelectedProfile,
+          simpleBaseModel,
+          customPhaseModels: existingProviderConfig?.customPhaseModels ?? buildProviderDefaultPhaseModels(newAccount.provider, providerSelectedProfile),
+          customPhaseThinking: existingProviderConfig?.customPhaseThinking ?? buildProviderDefaultPhaseThinking(newAccount.provider, providerSelectedProfile),
+          featureModels: existingProviderConfig?.featureModels ?? buildSimpleModeFeatureModels(simpleBaseModel),
+          featureThinking: existingProviderConfig?.featureThinking ?? buildProviderDefaultFeatureThinking(newAccount.provider),
+        },
+      },
+    },
+  };
+}
+
+export function updateProviderAccountState(
+  state: Pick<ProviderAccountSettingsState, 'providerAccounts'>,
+  id: string,
+  account: ProviderAccount,
+): Pick<ProviderAccountSettingsState, 'providerAccounts'> {
+  return {
+    providerAccounts: state.providerAccounts.map((existingAccount) => existingAccount.id === id ? account : existingAccount),
+  };
+}
+
+export function deleteProviderAccountState(
+  state: ProviderAccountSettingsState,
+  id: string,
+): ProviderAccountSettingsState {
+  return {
+    providerAccounts: state.providerAccounts.filter((account) => account.id !== id),
+    settings: {
+      ...state.settings,
+      globalPriorityOrder: (state.settings.globalPriorityOrder ?? []).filter((queuedId) => queuedId !== id),
+      crossProviderPriorityOrder: state.settings.crossProviderPriorityOrder?.filter((queuedId) => queuedId !== id),
+    },
+  };
+}
 
 interface SettingsState {
   settings: AppSettings;
@@ -276,7 +351,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   discoverModels: async (baseUrl: string, apiKey: string, signal?: AbortSignal): Promise<ModelInfo[] | null> => {
     console.log('[settings-store] discoverModels called with:', { baseUrl, apiKey: `${apiKey.slice(-4)}` });
     // Generate cache key from baseUrl and apiKey (last 4 chars)
-    const cacheKey = `${baseUrl}::${apiKey.slice(-4)}`;
+    const cacheKey = createModelDiscoveryCacheKey(baseUrl, apiKey);
 
     // Check cache first
     const state = useSettingsStore.getState();
@@ -335,18 +410,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   addProviderAccount: async (account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<IPCResult<ProviderAccount>> => {
     const result = await window.electronAPI.saveProviderAccount(account);
     if (result.success && result.data) {
-      const newAccount = result.data!;
-      set(state => ({
-        providerAccounts: [...state.providerAccounts, newAccount],
-        settings: {
-          ...state.settings,
-          globalPriorityOrder: [newAccount.id, ...(state.settings.globalPriorityOrder ?? [])],
-          // Also prepend to cross-provider order if it's been initialized
-          crossProviderPriorityOrder: state.settings.crossProviderPriorityOrder
-            ? [newAccount.id, ...state.settings.crossProviderPriorityOrder]
-            : undefined,
-        },
-      }));
+      const newAccount = result.data;
+      set((state) => addProviderAccountState(state, newAccount));
     }
     return result;
   },
@@ -354,9 +419,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   updateProviderAccount: async (id: string, updates: Partial<ProviderAccount>): Promise<IPCResult<ProviderAccount>> => {
     const result = await window.electronAPI.updateProviderAccount(id, updates);
     if (result.success && result.data) {
-      set(state => ({
-        providerAccounts: state.providerAccounts.map(a => a.id === id ? result.data! : a)
-      }));
+      const updatedAccount = result.data;
+      set((state) => updateProviderAccountState(state, id, updatedAccount));
     }
     return result;
   },
@@ -364,14 +428,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   deleteProviderAccount: async (id: string): Promise<IPCResult> => {
     const result = await window.electronAPI.deleteProviderAccount(id);
     if (result.success) {
-      set(state => ({
-        providerAccounts: state.providerAccounts.filter(a => a.id !== id),
-        settings: {
-          ...state.settings,
-          globalPriorityOrder: (state.settings.globalPriorityOrder ?? []).filter(qid => qid !== id),
-          crossProviderPriorityOrder: state.settings.crossProviderPriorityOrder?.filter(qid => qid !== id),
-        },
-      }));
+      set((state) => deleteProviderAccountState(state, id));
     }
     return result;
   },

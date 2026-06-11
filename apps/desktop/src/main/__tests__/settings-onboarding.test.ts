@@ -6,6 +6,7 @@
  */
 
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { AppSettings } from '../../shared/types';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
@@ -282,5 +283,48 @@ describe('SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS handler', () => {
       existsSyncMock.mockImplementation(originalExistsSync);
       readFileSyncMock.mockImplementation(originalReadFileSync);
     });
+  });
+});
+
+describe('settings provider config migration', () => {
+  test('initializes provider-native config once and is idempotent', async () => {
+    const { migrateToPerProviderAgentConfig } = await import('../ipc-handlers/settings-handlers');
+    const settings: AppSettings = {
+      theme: 'system',
+      defaultModel: 'sonnet',
+      agentFramework: 'claude-code',
+      autoUpdateAutoBuild: false,
+      autoNameTerminals: true,
+      notifications: {
+        onTaskComplete: true,
+        onTaskFailed: true,
+        onReviewNeeded: true,
+        sound: false,
+      },
+      selectedAgentProfile: 'quick',
+      providerAccounts: [
+        {
+          id: 'openai-account',
+          provider: 'openai',
+          name: 'OpenAI',
+          authType: 'api-key',
+          billingModel: 'pay-per-use',
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    };
+
+    const first = migrateToPerProviderAgentConfig({ ...settings });
+    expect(first.changed).toBe(true);
+    expect(first.settings._migratedToPerProviderConfig).toBe(true);
+    expect(first.settings.providerAgentConfig?.openai?.selectedAgentProfile).toBe('quick');
+    expect(first.settings.providerAgentConfig?.openai?.simpleBaseModel).toBe('gpt-5.4-mini');
+    expect(first.settings.providerAgentConfig?.openai?.customPhaseModels?.spec).toBe('gpt-5.4-mini');
+    expect(first.settings.providerAgentConfig?.openai?.featureModels?.insights).toBe('gpt-5.4-mini');
+
+    const second = migrateToPerProviderAgentConfig(first.settings);
+    expect(second.changed).toBe(false);
+    expect(second.settings.providerAgentConfig).toBe(first.settings.providerAgentConfig);
   });
 });

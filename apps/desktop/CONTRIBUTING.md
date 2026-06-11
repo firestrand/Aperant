@@ -1,4 +1,4 @@
-# Contributing to Auto Claude UI
+# Contributing to Aperant Desktop
 
 Thank you for your interest in contributing! This document provides guidelines for contributing to the frontend application.
 

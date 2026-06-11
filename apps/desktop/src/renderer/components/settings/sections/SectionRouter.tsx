@@ -2,11 +2,13 @@ import { useTranslation } from 'react-i18next';
 import type { Project, ProjectSettings as ProjectSettingsType, AutoBuildVersionInfo, ProjectEnvConfig, LinearSyncStatus, GitHubSyncStatus, GitLabSyncStatus } from '../../../../shared/types';
 import { SettingsSection } from '../SettingsSection';
 import { GeneralSettings } from '../../project-settings/GeneralSettings';
+import { ProjectAgentSettingsPanel } from '../../project-settings/ProjectAgentSettingsPanel';
 import { SecuritySettings } from '../../project-settings/SecuritySettings';
 import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
+import { AgentTools } from '../../AgentTools';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
 interface SectionRouterProps {
@@ -37,6 +39,7 @@ interface SectionRouterProps {
   isCheckingLinear: boolean;
   handleInitialize: () => Promise<void>;
   onOpenLinearImport: () => void;
+  onOpenGlobalMcpSettings?: () => void;
 }
 
 /**
@@ -70,7 +73,8 @@ export function SectionRouter({
   linearConnectionStatus,
   isCheckingLinear,
   handleInitialize,
-  onOpenLinearImport
+  onOpenLinearImport,
+  onOpenGlobalMcpSettings
 }: SectionRouterProps) {
   const { t } = useTranslation('settings');
 
@@ -78,8 +82,8 @@ export function SectionRouter({
     case 'general':
       return (
         <SettingsSection
-          title="General"
-          description={`Configure Auto-Build, agent model, and notifications for ${project.name}`}
+          title={t('projectSections.general.title')}
+          description={t('projectSections.general.integrationDescriptionWithProject', { projectName: project.name })}
         >
           <GeneralSettings
             project={project}
@@ -90,6 +94,31 @@ export function SectionRouter({
             isUpdating={isUpdating}
             handleInitialize={handleInitialize}
           />
+        </SettingsSection>
+      );
+
+    case 'agent-settings':
+      return (
+        <SettingsSection
+          title={t('projectSections.agentSettings.integrationTitle')}
+          description={t('projectSections.agentSettings.integrationDescription')}
+        >
+          <ProjectAgentSettingsPanel settings={settings} setSettings={setSettings} />
+        </SettingsSection>
+      );
+
+    case 'diagnostics':
+      return (
+        <SettingsSection
+          title={t('projectSections.diagnostics.integrationTitle')}
+          description={t('projectSections.diagnostics.integrationDescription')}
+        >
+          <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4 text-sm">
+            <div><span className="font-medium">{t('projectSections.diagnostics.projectPath')}:</span> <code>{project.path}</code></div>
+            <div><span className="font-medium">{t('projectSections.diagnostics.autoBuildPath')}:</span> <code>{project.autoBuildPath ?? t('projectSections.diagnostics.notInitialized')}</code></div>
+            <div><span className="font-medium">{t('projectSections.diagnostics.envLoaded')}:</span> {envConfig ? t('projectSections.diagnostics.yes') : t('projectSections.diagnostics.no')}</div>
+            {envError && <div className="text-destructive">{envError}</div>}
+          </div>
         </SettingsSection>
       );
 
@@ -190,6 +219,22 @@ export function SectionRouter({
               expanded={true}
               onToggle={() => {}}
             />
+          </InitializationGuard>
+        </SettingsSection>
+      );
+
+    case 'mcp':
+      return (
+        <SettingsSection
+          title={t('projectSections.mcp.integrationTitle')}
+          description={t('projectSections.mcp.integrationDescription')}
+        >
+          <InitializationGuard
+            initialized={!!project.autoBuildPath}
+            title={t('projectSections.mcp.integrationTitle')}
+            description={t('projectSections.mcp.syncDescription')}
+          >
+            <AgentTools onSettingsClick={onOpenGlobalMcpSettings} />
           </InitializationGuard>
         </SettingsSection>
       );

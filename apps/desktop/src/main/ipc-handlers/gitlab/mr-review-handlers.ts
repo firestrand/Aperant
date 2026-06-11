@@ -15,10 +15,10 @@ import type { BrowserWindow } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
-import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants';
+import { IPC_CHANNELS } from '../../../shared/constants';
 import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
-import { readSettingsFile } from '../../settings-utils';
-import type { Project, AppSettings } from '../../../shared/types';
+import { getActiveProviderFeatureSettings } from '../feature-settings-helper';
+import type { Project } from '../../../shared/types';
 import type {
   MRReviewResult,
   MRReviewProgress,
@@ -132,25 +132,15 @@ function getReviewResult(project: Project, mrIid: number): MRReviewResult | null
 }
 
 /**
- * Get GitLab MR model and thinking settings from app settings
+ * Get GitLab MR model and thinking settings from app settings.
+ * GitLab MR review reuses the GitHub PR feature slot until it has its own setting.
  */
-function getGitLabMRSettings(): { model: string; thinkingLevel: string } {
-  const rawSettings = readSettingsFile() as Partial<AppSettings> | undefined;
+function getGitLabMRSettings(projectOverrides?: import('../../../shared/types/project').ProjectAgentOverrides): { model: string; thinkingLevel: string } {
+  const settings = getActiveProviderFeatureSettings('githubPrs', projectOverrides);
 
-  // Get feature models/thinking with defaults
-  const featureModels = rawSettings?.featureModels ?? DEFAULT_FEATURE_MODELS;
-  const featureThinking = rawSettings?.featureThinking ?? DEFAULT_FEATURE_THINKING;
+  debugLog('GitLab MR settings', settings);
 
-  // Use GitHub PRs settings as fallback (GitLab MRs not yet in settings)
-  const modelShort = featureModels.githubPrs ?? DEFAULT_FEATURE_MODELS.githubPrs;
-  const thinkingLevel = featureThinking.githubPrs ?? DEFAULT_FEATURE_THINKING.githubPrs;
-
-  // Convert model short name to full model ID
-  const model = MODEL_ID_MAP[modelShort] ?? MODEL_ID_MAP['opus'];
-
-  debugLog('GitLab MR settings', { modelShort, model, thinkingLevel });
-
-  return { model, thinkingLevel };
+  return settings;
 }
 
 /**
@@ -288,7 +278,7 @@ async function runMRReview(
     throw new Error('No GitLab configuration found for project');
   }
 
-  const { model, thinkingLevel } = getGitLabMRSettings();
+  const { model, thinkingLevel } = getGitLabMRSettings(project.settings.projectAgentOverrides);
   const reviewKey = getReviewKey(project.id, mrIid);
 
   debugLog('Starting TypeScript MR review', { model, thinkingLevel, mrIid });
@@ -892,7 +882,7 @@ export function registerMRReviewHandlers(
             message: 'Starting follow-up review...',
           });
 
-          const { model, thinkingLevel } = getGitLabMRSettings();
+          const { model, thinkingLevel } = getGitLabMRSettings(project.settings.projectAgentOverrides);
 
           debugLog('Running TypeScript follow-up review', { model, thinkingLevel, mrIid });
 

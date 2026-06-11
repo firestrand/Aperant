@@ -15,6 +15,7 @@ import type { ExtractedInsights, InsightExtractionConfig } from '../runners/insi
 import { extractSessionInsights } from '../runners/insight-extractor';
 import type { SessionResult } from '../session/types';
 import type { SubtaskInfo } from './build-orchestrator';
+import { executeParallel } from './parallel-executor';
 import {
   writeAuthPauseFile,
   writeRateLimitPauseFile,
@@ -36,6 +37,8 @@ export interface SubtaskIteratorConfig {
   maxRetries: number;
   /** Delay between subtask iterations (ms) */
   autoContinueDelayMs: number;
+  /** Maximum safe parallel coder sessions. Sequential when the plan recommends one worker. */
+  maxParallelSubtasks?: number;
   /** Abort signal for cancellation */
   abortSignal?: AbortSignal;
   /**
@@ -89,12 +92,19 @@ interface ImplementationPlan {
   feature?: string;
   workflow_type?: string;
   phases: PlanPhase[];
+  summary?: {
+    parallelism?: {
+      recommended_workers?: number;
+    };
+  };
 }
 
 interface PlanPhase {
   id?: string;
   phase?: number;
   name: string;
+  depends_on?: Array<string | number>;
+  parallel_safe?: boolean;
   subtasks: PlanSubtask[];
 }
 
@@ -144,6 +154,32 @@ export async function iterateSubtasks(
     // Count totals
     totalSubtasks = countTotalSubtasks(plan);
     completedSubtasks = countCompletedSubtasks(plan);
+
+    const parallelLimit = getEffectiveParallelLimit(plan, config.maxParallelSubtasks);
+    if (parallelLimit > 1) {
+      const readyBatch = getReadyParallelSubtasks(plan, stuckSubtasks, parallelLimit);
+      if (readyBatch.length > 1) {
+        const parallelOutcome = await runParallelSubtaskBatch(
+          config,
+          readyBatch,
+          attemptCounts,
+          stuckSubtasks,
+        );
+
+        if (parallelOutcome.cancelled) {
+          return { totalSubtasks, completedSubtasks, stuckSubtasks, cancelled: true };
+        }
+
+        if (parallelOutcome.waitedForResume && config.abortSignal?.aborted) {
+          return { totalSubtasks, completedSubtasks, stuckSubtasks, cancelled: true };
+        }
+
+        if (config.autoContinueDelayMs > 0) {
+          await delay(config.autoContinueDelayMs, config.abortSignal);
+        }
+        continue;
+      }
+    }
 
     // Find next subtask
     const next = getNextPendingSubtask(plan, stuckSubtasks);
@@ -391,6 +427,246 @@ async function syncPhasesToMain(
 }
 
 // =============================================================================
+// Parallel Batch Processing
+// =============================================================================
+
+interface ReadySubtask {
+  subtask: PlanSubtask;
+  phaseName: string;
+}
+
+interface ParallelBatchOutcome {
+  cancelled: boolean;
+  waitedForResume: boolean;
+}
+
+const DEFAULT_MAX_PARALLEL_SUBTASKS = 3;
+
+/**
+ * OpenAgent-inspired adaptation: use a ready queue with dependency checks,
+ * conservative WIP limits, and per-subtask claims before concurrent execution.
+ */
+async function runParallelSubtaskBatch(
+  config: SubtaskIteratorConfig,
+  readyBatch: ReadySubtask[],
+  attemptCounts: Map<string, number>,
+  stuckSubtasks: string[],
+): Promise<ParallelBatchOutcome> {
+  let waitedForResume = false;
+  const runnable: Array<{ info: SubtaskInfo; attempt: number; original: PlanSubtask }> = [];
+
+  for (const ready of readyBatch) {
+    const currentAttempt = (attemptCounts.get(ready.subtask.id) ?? 0) + 1;
+    attemptCounts.set(ready.subtask.id, currentAttempt);
+
+    const info = toSubtaskInfo(ready.subtask, ready.phaseName);
+
+    if (currentAttempt > config.maxRetries) {
+      stuckSubtasks.push(ready.subtask.id);
+      config.onSubtaskStuck?.(
+        info,
+        `Exceeded max retries (${config.maxRetries})`,
+      );
+      continue;
+    }
+
+    runnable.push({ info, attempt: currentAttempt, original: ready.subtask });
+  }
+
+  if (runnable.length === 0) {
+    return { cancelled: false, waitedForResume };
+  }
+
+  await updateSubtaskStatuses(
+    config.specDir,
+    runnable.map((item) => item.info.id),
+    'in_progress',
+  );
+
+  const attemptsById = new Map(runnable.map((item) => [item.info.id, item.attempt]));
+
+  const batchResult = await executeParallel(
+    runnable.map((item) => item.info),
+    (subtask) => config.runSubtaskSession(subtask, attemptsById.get(subtask.id) ?? 1),
+    {
+      maxConcurrency: runnable.length,
+      abortSignal: config.abortSignal,
+      onSubtaskStart: (subtask) => {
+        config.onSubtaskStart?.(subtask, attemptsById.get(subtask.id) ?? 1);
+      },
+      onSubtaskComplete: (subtask, result) => {
+        config.onSubtaskComplete?.(subtask, result);
+      },
+    },
+  );
+
+  for (const item of batchResult.results) {
+    const subtask = runnable.find((candidate) => candidate.info.id === item.subtaskId);
+    if (!subtask) continue;
+
+    const result = item.result;
+    if (result?.outcome === 'cancelled') {
+      return { cancelled: true, waitedForResume };
+    }
+
+    if (result?.outcome === 'rate_limited') {
+      await updateSubtaskStatuses(config.specDir, [subtask.info.id], 'pending');
+      const errorMessage = result.error?.message ?? 'Rate limit reached';
+      writeRateLimitPauseFile(config.specDir, errorMessage, null);
+      await waitForRateLimitResume(
+        config.specDir,
+        MAX_RATE_LIMIT_WAIT_MS_DEFAULT,
+        config.sourceSpecDir,
+        config.abortSignal,
+      );
+      waitedForResume = true;
+      continue;
+    }
+
+    if (result?.outcome === 'auth_failure') {
+      await updateSubtaskStatuses(config.specDir, [subtask.info.id], 'pending');
+      const errorMessage = result.error?.message ?? 'Authentication failed';
+      writeAuthPauseFile(config.specDir, errorMessage);
+      await waitForAuthResume(config.specDir, config.sourceSpecDir, config.abortSignal);
+      waitedForResume = true;
+      continue;
+    }
+
+    if (item.success && result) {
+      await ensureSubtaskMarkedCompleted(config.specDir, subtask.info.id);
+      await restampExecutionPhase(config.specDir, 'coding');
+      if (config.sourceSpecDir) {
+        await syncPhasesToMain(config.specDir, config.sourceSpecDir);
+      }
+      if (config.extractInsights) {
+        extractInsightsAfterSession(config, subtask.original, result).then((insights) => {
+          if (insights) config.onInsightsExtracted?.(subtask.info.id, insights);
+        }).catch(() => { /* insight extraction is non-blocking */ });
+      }
+      continue;
+    }
+
+    await updateSubtaskStatuses(config.specDir, [subtask.info.id], 'pending');
+  }
+
+  await restampExecutionPhase(config.specDir, 'coding');
+  if (config.sourceSpecDir) {
+    await syncPhasesToMain(config.specDir, config.sourceSpecDir);
+  }
+
+  return { cancelled: batchResult.cancelled, waitedForResume };
+}
+
+async function updateSubtaskStatuses(
+  specDir: string,
+  subtaskIds: string[],
+  status: 'pending' | 'in_progress' | 'completed' | 'blocked' | 'failed',
+): Promise<void> {
+  const planPath = join(specDir, 'implementation_plan.json');
+  try {
+    const raw = await readFile(planPath, 'utf-8');
+    const plan = safeParseJson<ImplementationPlan>(raw);
+    if (!plan) return;
+
+    const idSet = new Set(subtaskIds);
+    let updated = false;
+    for (const phase of plan.phases) {
+      for (const subtask of phase.subtasks) {
+        if (idSet.has(subtask.id) && subtask.status !== status) {
+          subtask.status = status;
+          updated = true;
+        }
+      }
+    }
+
+    if (updated) {
+      await writeFile(planPath, JSON.stringify(plan, null, 2));
+    }
+  } catch {
+    // Non-fatal: the main loop will retry or mark stuck.
+  }
+}
+
+function toSubtaskInfo(subtask: PlanSubtask, phaseName: string): SubtaskInfo {
+  return {
+    id: subtask.id,
+    description: subtask.description,
+    phaseName,
+    filesToCreate: subtask.files_to_create,
+    filesToModify: subtask.files_to_modify,
+    status: subtask.status,
+  };
+}
+
+function getEffectiveParallelLimit(
+  plan: ImplementationPlan,
+  configuredMax?: number,
+): number {
+  const recommended = plan.summary?.parallelism?.recommended_workers ?? 1;
+  const max = configuredMax ?? DEFAULT_MAX_PARALLEL_SUBTASKS;
+  if (!Number.isFinite(recommended) || recommended < 2) return 1;
+  return Math.max(1, Math.min(Math.floor(recommended), Math.max(1, max)));
+}
+
+export function getReadyParallelSubtasks(
+  plan: ImplementationPlan,
+  stuckSubtaskIds: string[],
+  limit: number,
+): ReadySubtask[] {
+  const selected: ReadySubtask[] = [];
+  const selectedFiles = new Set<string>();
+
+  for (const phase of plan.phases) {
+    if (selected.length >= limit) break;
+    if (phase.parallel_safe !== true) continue;
+    if (!arePhaseDependenciesSatisfied(phase, plan)) continue;
+
+    for (const subtask of phase.subtasks) {
+      if (selected.length >= limit) break;
+      if (subtask.status !== 'pending') continue;
+      if (stuckSubtaskIds.includes(subtask.id)) continue;
+
+      const files = getSubtaskTargetFiles(subtask);
+      if (files.some((file) => selectedFiles.has(file))) continue;
+
+      selected.push({ subtask, phaseName: phase.name });
+      for (const file of files) selectedFiles.add(file);
+    }
+  }
+
+  return selected;
+}
+
+function arePhaseDependenciesSatisfied(
+  phase: PlanPhase,
+  plan: ImplementationPlan,
+): boolean {
+  const deps = phase.depends_on ?? [];
+  if (deps.length === 0) return true;
+
+  const completedPhaseIds = new Set(
+    plan.phases
+      .filter((candidate) => candidate.subtasks.every((subtask) => subtask.status === 'completed'))
+      .map(getPhaseIdentifier)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  return deps.every((dep) => completedPhaseIds.has(String(dep)));
+}
+
+function getPhaseIdentifier(phase: PlanPhase): string | undefined {
+  if (phase.id !== undefined) return String(phase.id);
+  if (phase.phase !== undefined) return String(phase.phase);
+  return undefined;
+}
+
+function getSubtaskTargetFiles(subtask: PlanSubtask): string[] {
+  return [...(subtask.files_to_modify ?? []), ...(subtask.files_to_create ?? [])]
+    .map((file) => file.trim())
+    .filter(Boolean);
+}
+
+// =============================================================================
 // Plan Queries
 // =============================================================================
 
@@ -419,6 +695,8 @@ function getNextPendingSubtask(
   stuckSubtaskIds: string[],
 ): { subtask: PlanSubtask; phaseName: string } | null {
   for (const phase of plan.phases) {
+    if (!arePhaseDependenciesSatisfied(phase, plan)) continue;
+
     for (const subtask of phase.subtasks) {
       if (
         subtask.status === 'pending' &&
@@ -478,7 +756,7 @@ const MAX_RATE_LIMIT_WAIT_MS_DEFAULT = 7_200_000;
  * Returns null on any error so the caller can safely ignore failures.
  */
 async function extractInsightsAfterSession(
-  config: SubtaskIteratorConfig,
+  _config: SubtaskIteratorConfig,
   subtask: PlanSubtask,
   result: SessionResult,
 ): Promise<ExtractedInsights | null> {

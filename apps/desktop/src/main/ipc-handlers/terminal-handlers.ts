@@ -1,3 +1,4 @@
+import path from 'path';
 import { ipcMain } from 'electron';
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -17,6 +18,20 @@ import { isValidConfigDir } from '../utils/config-path-validator';
 /**
  * Register all terminal-related IPC handlers
  */
+function findProjectOverridesForCwd(cwd?: string) {
+  if (!cwd) return undefined;
+  const resolvedCwd = path.resolve(cwd);
+  const project = projectStore.getProjects()
+    .filter((candidate) => {
+      const resolvedProjectPath = path.resolve(candidate.path);
+      const relative = path.relative(resolvedProjectPath, resolvedCwd);
+      return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+    })
+    .sort((a, b) => b.path.length - a.path.length)[0];
+
+  return project?.settings.projectAgentOverrides;
+}
+
 export function registerTerminalHandlers(
   terminalManager: TerminalManager,
   getMainWindow: () => BrowserWindow | null
@@ -84,7 +99,7 @@ export function registerTerminalHandlers(
     IPC_CHANNELS.TERMINAL_GENERATE_NAME,
     async (_, command: string, cwd?: string): Promise<IPCResult<string>> => {
       try {
-        const name = await terminalNameGenerator.generateName(command, cwd);
+        const name = await terminalNameGenerator.generateName(command, cwd, findProjectOverridesForCwd(cwd));
         if (name) {
           return { success: true, data: name };
         } else {

@@ -151,6 +151,19 @@ If existing plan has phases 1-4:
 4. **Clear verification** - Every subtask must have a way to verify it works
 5. **Preserve context** - Use patterns_from to point to relevant existing files
 
+### Follow-Up Agile Contract
+
+Adapted from oh-my-openagent planning and team-task concepts as inspiration only.
+
+For every appended phase or subtask:
+
+1. **Preserve completed work**: never reopen or rewrite completed subtasks unless the follow-up explicitly requires a correction.
+2. **Explicit dependency**: state which existing phase/subtask/artifact the follow-up depends on and why.
+3. **Blocker note**: if existing functionality must be available before work starts, add `Blocked by: [artifact/check]` to the description or implementation notes.
+4. **Fresh-coder handoff**: include goal, files, pattern references, must-not scope, and final verification in the subtask description or notes.
+5. **Executable evidence**: replace placeholder verification with a concrete command, API call, browser flow, screenshot requirement, query, or file assertion.
+6. **Conservative WIP**: set `parallel_safe: false` unless appended work touches disjoint files and has no dependency on another new follow-up subtask.
+
 ---
 
 ## PHASE 3: UPDATE implementation_plan.json

@@ -2,7 +2,9 @@ import { create } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
 import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
 import { debugLog, debugWarn } from '../../shared/utils/debug-logger';
+import { evaluateTaskDependencies } from '../../shared/utils/task-dependency-scheduler';
 import { useProjectStore } from './project-store';
+import { deriveExecutionProgressForStatus } from './task-progress-helpers';
 
 /** Default max parallel tasks when no project setting is configured */
 export const DEFAULT_MAX_PARALLEL_TASKS = 3;
@@ -298,25 +300,11 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       return {
         tasks: updateTaskAtIndex(state.tasks, index, (t) => {
           // Determine execution progress based on status transition
-          let executionProgress = t.executionProgress;
+          const executionProgress = deriveExecutionProgressForStatus(status, t.executionProgress);
 
           // Track status transition for debugging flip-flop issues
           const previousStatus = t.status;
           const statusChanged = previousStatus !== status;
-
-          if (status === 'backlog') {
-            // When status goes to backlog, reset execution progress to idle
-            // This ensures the planning/coding animation stops when task is stopped
-            executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-          } else if (status === 'in_progress' && !t.executionProgress?.phase) {
-            // When starting a task and no phase is set yet, default to planning
-            // This prevents the "no active phase" UI state during startup race condition
-            executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-          } else if (['human_review', 'error', 'done', 'pr_created'].includes(status)) {
-            // Reset execution progress when task reaches terminal states
-            // This prevents stuck tasks from showing stale progress indicators
-            executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
-          }
 
           // Log status transitions to help diagnose flip-flop issues
           debugLog('[updateTaskStatus] Status transition:', {
@@ -728,6 +716,184 @@ export async function loadTasks(projectId: string, options?: { forceRefresh?: bo
   }
 }
 
+export interface CreateWorkItemsFromPlanResult {
+  createdTasks: Task[];
+  failedPhases: Array<{
+    phaseId: string;
+    title: string;
+  }>;
+}
+
+export interface WorkItemDescriptionLabels {
+  parentSpec: string;
+  specContext: string;
+  phase: string;
+  type: string;
+  workItems: string;
+  finalAcceptanceCriteria: string;
+}
+
+const DEFAULT_WORK_ITEM_DESCRIPTION_LABELS: WorkItemDescriptionLabels = {
+  parentSpec: 'Parent spec',
+  specContext: 'Spec context',
+  phase: 'Phase',
+  type: 'Type',
+  workItems: 'Work items',
+  finalAcceptanceCriteria: 'Final acceptance criteria',
+};
+
+export interface CreateWorkItemsFromPlanOptions {
+  metadata?: TaskMetadata;
+  titlePrefix?: string;
+  descriptionLabels?: WorkItemDescriptionLabels;
+}
+
+interface PhaseWorkItemCandidate {
+  phase: ImplementationPlan['phases'][number];
+  phaseId: string;
+  title: string;
+  internalDependencyIds: string[];
+  externalDependencyIds: string[];
+}
+
+function normalizePlanReference(value: string | number | undefined): string {
+  return value === undefined ? '' : String(value).trim();
+}
+
+function getPhaseWorkItemId(phase: ImplementationPlan['phases'][number]): string {
+  return normalizePlanReference(phase.id ?? phase.phase);
+}
+
+function getPhaseDependencyIds(phase: ImplementationPlan['phases'][number]): string[] {
+  return (phase.depends_on ?? []).map(normalizePlanReference).filter(Boolean);
+}
+
+function buildPhaseWorkItemDescription(
+  plan: ImplementationPlan,
+  phase: ImplementationPlan['phases'][number],
+  labels: WorkItemDescriptionLabels = DEFAULT_WORK_ITEM_DESCRIPTION_LABELS,
+): string {
+  const parentTitle = plan.feature || plan.title;
+  const sections = [
+    parentTitle ? `${labels.parentSpec}: ${parentTitle}` : undefined,
+    plan.description ? `${labels.specContext}:\n${plan.description}` : undefined,
+    `${labels.phase}: ${phase.name}`,
+    `${labels.type}: ${phase.type}`,
+    phase.subtasks.length > 0
+      ? `${labels.workItems}:\n${phase.subtasks.map((subtask, index) => `${index + 1}. ${subtask.title}\n${subtask.description}`).join('\n\n')}`
+      : undefined,
+    plan.final_acceptance.length > 0
+      ? `${labels.finalAcceptanceCriteria}:\n${plan.final_acceptance.map((criterion) => `- ${criterion}`).join('\n')}`
+      : undefined,
+  ];
+
+  return sections.filter((section): section is string => Boolean(section)).join('\n\n');
+}
+
+/**
+ * Create one top-level task per implementation-plan phase.
+ * Phase dependencies are copied into TaskMetadata.dependencies using the created
+ * dependency tasks' spec IDs, which the Kanban scheduler can resolve directly.
+ */
+export async function createWorkItemsFromImplementationPlan(
+  projectId: string,
+  plan: ImplementationPlan,
+  options?: CreateWorkItemsFromPlanOptions,
+): Promise<CreateWorkItemsFromPlanResult> {
+  const createdTasks: Task[] = [];
+  const failedPhases: CreateWorkItemsFromPlanResult['failedPhases'] = [];
+  const phaseIdToSpecId = new Map<string, string>();
+  const failedPhaseIds = new Set<string>();
+  const titlePrefix = options?.titlePrefix ?? plan.feature ?? plan.title;
+  const phaseIds = plan.phases.map(getPhaseWorkItemId);
+  const seenPhaseIds = new Set<string>();
+  const duplicatePhaseIds = new Set<string>();
+
+  for (const phaseId of phaseIds) {
+    if (seenPhaseIds.has(phaseId)) {
+      duplicatePhaseIds.add(phaseId);
+    }
+    seenPhaseIds.add(phaseId);
+  }
+
+  if (duplicatePhaseIds.size > 0) {
+    return {
+      createdTasks,
+      failedPhases: plan.phases
+        .filter((phase) => duplicatePhaseIds.has(getPhaseWorkItemId(phase)))
+        .map((phase) => ({
+          phaseId: getPhaseWorkItemId(phase),
+          title: titlePrefix ? `${titlePrefix}: ${phase.name}` : phase.name,
+        })),
+    };
+  }
+
+  const internalPhaseIds = new Set(phaseIds);
+  let pendingCandidates: PhaseWorkItemCandidate[] = plan.phases.map((phase) => {
+    const phaseId = getPhaseWorkItemId(phase);
+    const dependencyIds = getPhaseDependencyIds(phase);
+
+    return {
+      phase,
+      phaseId,
+      title: titlePrefix ? `${titlePrefix}: ${phase.name}` : phase.name,
+      internalDependencyIds: dependencyIds.filter((dependencyId) => internalPhaseIds.has(dependencyId)),
+      externalDependencyIds: dependencyIds.filter((dependencyId) => !internalPhaseIds.has(dependencyId)),
+    };
+  });
+
+  while (pendingCandidates.length > 0) {
+    const blockedCandidates = pendingCandidates.filter((candidate) =>
+      candidate.internalDependencyIds.some((dependencyId) => failedPhaseIds.has(dependencyId))
+    );
+
+    if (blockedCandidates.length > 0) {
+      for (const candidate of blockedCandidates) {
+        failedPhases.push({ phaseId: candidate.phaseId, title: candidate.title });
+        failedPhaseIds.add(candidate.phaseId);
+      }
+      pendingCandidates = pendingCandidates.filter((candidate) => !failedPhaseIds.has(candidate.phaseId));
+      continue;
+    }
+
+    const readyCandidates = pendingCandidates.filter((candidate) =>
+      candidate.internalDependencyIds.every((dependencyId) => phaseIdToSpecId.has(dependencyId))
+    );
+
+    if (readyCandidates.length === 0) {
+      for (const candidate of pendingCandidates) {
+        failedPhases.push({ phaseId: candidate.phaseId, title: candidate.title });
+        failedPhaseIds.add(candidate.phaseId);
+      }
+      break;
+    }
+
+    for (const candidate of readyCandidates) {
+      const dependencyIds = [
+        ...candidate.internalDependencyIds.map((dependencyId) => phaseIdToSpecId.get(dependencyId)).filter((dependencyId): dependencyId is string => Boolean(dependencyId)),
+        ...candidate.externalDependencyIds,
+      ];
+      const createdTask = await createTask(projectId, candidate.title, buildPhaseWorkItemDescription(plan, candidate.phase, options?.descriptionLabels), {
+        ...options?.metadata,
+        dependencies: dependencyIds,
+      });
+
+      if (createdTask) {
+        createdTasks.push(createdTask);
+        phaseIdToSpecId.set(candidate.phaseId, createdTask.specId);
+      } else {
+        failedPhases.push({ phaseId: candidate.phaseId, title: candidate.title });
+        failedPhaseIds.add(candidate.phaseId);
+      }
+    }
+
+    const readyPhaseIds = new Set(readyCandidates.map((candidate) => candidate.phaseId));
+    pendingCandidates = pendingCandidates.filter((candidate) => !readyPhaseIds.has(candidate.phaseId));
+  }
+
+  return { createdTasks, failedPhases };
+}
+
 /**
  * Create a new task
  */
@@ -881,7 +1047,11 @@ export async function startTaskOrQueue(taskId: string): Promise<StartTaskOrQueue
   // Exclude this task from the capacity check when it's already in_progress (stuck restart)
   const excludeId = task?.status === 'in_progress' ? taskId : undefined;
 
-  if (isQueueAtCapacity(excludeId)) {
+  const dependenciesReady = task
+    ? evaluateTaskDependencies(task, useTaskStore.getState().tasks).ready
+    : true;
+
+  if (!dependenciesReady || isQueueAtCapacity(excludeId)) {
     const result = await persistTaskStatus(taskId, 'queue');
     if (!result.success) {
       console.error('[Queue] Failed to queue task:', taskId, result.error);

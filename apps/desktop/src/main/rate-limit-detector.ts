@@ -322,13 +322,13 @@ function classifyAuthFailureType(output: string): 'missing' | 'invalid' | 'expir
 function getAuthFailureMessage(failureType: 'missing' | 'invalid' | 'expired' | 'unknown'): string {
   switch (failureType) {
     case 'missing':
-      return 'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account.';
+      return 'Provider authentication required. Please add or authenticate an account in Settings > Accounts.';
     case 'expired':
-      return 'Your Claude session has expired. Please re-authenticate in Settings > Claude Profiles.';
+      return 'Your provider session has expired. Please re-authenticate the account in Settings > Accounts.';
     case 'invalid':
-      return 'Invalid Claude credentials. Please check your OAuth token or re-authenticate in Settings > Claude Profiles.';
+      return 'Invalid provider credentials. Please check the account token or re-authenticate in Settings > Accounts.';
     default:
-      return 'Claude authentication failed. Please verify your authentication in Settings > Claude Profiles.';
+      return 'Provider authentication failed. Please verify the default account in Settings > Accounts.';
   }
 }
 
@@ -359,13 +359,13 @@ function classifyBillingFailureType(output: string): 'insufficient_credits' | 'p
 function getBillingFailureMessage(failureType: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown'): string {
   switch (failureType) {
     case 'insufficient_credits':
-      return 'Your Claude API credit balance is too low. Please add credits to your account or switch to another profile in Settings > Claude Profiles.';
+      return 'The provider account credit balance is too low. Please add credits or switch to another account in Settings > Accounts.';
     case 'payment_required':
-      return 'A billing error occurred with your Claude API account. Please check your payment method or switch to another profile in Settings > Claude Profiles.';
+      return 'A billing error occurred with the provider account. Please check its payment method or switch to another account in Settings > Accounts.';
     case 'subscription_inactive':
-      return 'Your Claude API subscription is inactive or expired. Please renew your subscription or switch to another profile in Settings > Claude Profiles.';
+      return 'The provider account subscription is inactive or expired. Please renew it or switch to another account in Settings > Accounts.';
     default:
-      return 'A billing issue was detected with your Claude API account. Please check your account status or switch to another profile in Settings > Claude Profiles.';
+      return 'A billing issue was detected with the provider account. Please check account status or switch to another account in Settings > Accounts.';
   }
 }
 

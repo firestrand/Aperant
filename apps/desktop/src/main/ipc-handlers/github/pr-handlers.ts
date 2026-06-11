@@ -12,16 +12,13 @@ import { ipcMain } from "electron";
 import type { BrowserWindow } from "electron";
 import path from "path";
 import fs from "fs";
-import {
-  IPC_CHANNELS,
-  DEFAULT_FEATURE_MODELS,
-  DEFAULT_FEATURE_THINKING,
-} from "../../../shared/constants";
+import { IPC_CHANNELS } from "../../../shared/constants";
 import { getGitHubConfig, githubFetch, normalizeRepoReference } from "./utils";
 import { readSettingsFile } from "../../settings-utils";
+import { getActiveProviderFeatureSettings } from "../feature-settings-helper";
 import { getAugmentedEnv } from "../../env-utils";
 import { getMemoryService } from "../context/memory-service-factory";
-import type { Project, AppSettings } from "../../../shared/types";
+import type { Project } from "../../../shared/types";
 import { createContextLogger } from "./utils/logger";
 import { withProjectOrNull } from "./utils/project-middleware";
 import { createIPCCommunicators } from "./utils/ipc-communicator";
@@ -1440,19 +1437,14 @@ function sendReviewStateUpdate(
 /**
  * Get GitHub PR model and thinking settings from app settings
  */
-function getGitHubPRSettings(): { model: string; thinkingLevel: string } {
-  const rawSettings = readSettingsFile() as Partial<AppSettings> | undefined;
-
-  // Get feature models/thinking with defaults
-  const featureModels = rawSettings?.featureModels ?? DEFAULT_FEATURE_MODELS;
-  const featureThinking = rawSettings?.featureThinking ?? DEFAULT_FEATURE_THINKING;
-
-  // Get PR-specific settings (with fallback to defaults)
+function getGitHubPRSettings(project: Project): { model: string; thinkingLevel: string } {
   // Return the raw shorthand — createSimpleClient() handles model-to-provider resolution
   // via resolveModelId() and the priority queue. Do NOT resolve through MODEL_ID_MAP
   // which is Anthropic-only and would silently replace non-Anthropic models.
-  const model = featureModels.githubPrs ?? DEFAULT_FEATURE_MODELS.githubPrs;
-  const thinkingLevel = featureThinking.githubPrs ?? DEFAULT_FEATURE_THINKING.githubPrs;
+  const { model, thinkingLevel } = getActiveProviderFeatureSettings(
+    'githubPrs',
+    project.settings.projectAgentOverrides,
+  );
 
   debugLog("GitHub PR settings", { model, thinkingLevel });
 
@@ -1674,7 +1666,7 @@ async function runPRReview(
   }
 
   const repo = config.repo;
-  const { model, thinkingLevel } = getGitHubPRSettings();
+  const { model, thinkingLevel } = getGitHubPRSettings(project);
   const reviewKey = getReviewKey(project.id, prNumber);
 
   safeBreadcrumb({
@@ -3176,7 +3168,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             ciWaitAbortControllers.delete(reviewKey);
 
             const repo = config.repo;
-            const { model, thinkingLevel } = getGitHubPRSettings();
+            const { model, thinkingLevel } = getGitHubPRSettings(project);
 
             safeBreadcrumb({
               category: 'pr-review',

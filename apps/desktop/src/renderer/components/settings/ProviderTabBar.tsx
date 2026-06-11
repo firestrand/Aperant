@@ -21,6 +21,7 @@ const MAX_VISIBLE_TABS = 3;
 interface ProviderTabBarProps {
   providers: BuiltinProvider[];
   activeProvider: BuiltinProvider | null;
+  defaultProvider?: BuiltinProvider | null;
   onProviderChange: (provider: BuiltinProvider) => void;
   showCrossProvider?: boolean;
   isCrossProviderActive?: boolean;
@@ -37,6 +38,7 @@ function getProviderDisplayName(provider: BuiltinProvider): string {
 export function ProviderTabBar({
   providers,
   activeProvider,
+  defaultProvider,
   onProviderChange,
   showCrossProvider,
   isCrossProviderActive,
@@ -64,6 +66,7 @@ export function ProviderTabBar({
     <div className="flex items-center gap-1.5 flex-wrap">
       {visibleProviders.map((provider) => {
         const isActive = provider === activeProvider;
+        const isDefault = provider === defaultProvider;
         const showSetupDot = needsSetup?.(provider) ?? false;
         return (
           <button
@@ -77,7 +80,14 @@ export function ProviderTabBar({
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
           >
-            {getProviderDisplayName(provider)}
+            <span className="inline-flex items-center gap-1">
+              {getProviderDisplayName(provider)}
+              {isDefault && (
+                <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-[10px] font-semibold">
+                  {t('agentProfile.providerTabs.defaultBadge')}
+                </span>
+              )}
+            </span>
             {showSetupDot && (
               <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
@@ -116,7 +126,14 @@ export function ProviderTabBar({
                   provider === activeProvider && 'bg-accent text-accent-foreground'
                 )}
               >
-                {getProviderDisplayName(provider)}
+                <span className="flex items-center gap-2">
+                  {getProviderDisplayName(provider)}
+                  {provider === defaultProvider && (
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                      {t('agentProfile.providerTabs.defaultBadge')}
+                    </span>
+                  )}
+                </span>
                 {needsSetup?.(provider) && (
                   <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-red-500 shrink-0" />
                 )}

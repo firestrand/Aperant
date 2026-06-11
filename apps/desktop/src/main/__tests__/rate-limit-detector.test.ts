@@ -407,7 +407,8 @@ describe('Auth Failure Detection', () => {
 
       expect(result.isAuthFailure).toBe(true);
       expect(result.message).toContain('Settings');
-      expect(result.message).toContain('Claude Profiles');
+      expect(result.message).toContain('Accounts');
+      expect(result.message).not.toContain('Claude Profiles');
     });
 
     it('should provide user-friendly message for expired auth', async () => {

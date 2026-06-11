@@ -69,6 +69,16 @@ describe('ProjectStore', () => {
       expect(project.updatedAt).toBeInstanceOf(Date);
     });
 
+    it('should not seed deprecated model setting for new projects', async () => {
+      const { ProjectStore } = await import('../project-store');
+      const store = new ProjectStore();
+
+      const project = store.addProject(TEST_PROJECT_PATH);
+
+      expect(project.settings).not.toHaveProperty('model');
+      expect(project.settings.projectAgentOverrides).toBeUndefined();
+    });
+
     it('should use provided name if given', async () => {
       const { ProjectStore } = await import('../project-store');
       const store = new ProjectStore();
@@ -162,6 +172,46 @@ describe('ProjectStore', () => {
   });
 
   describe('getProjects', () => {
+    it('should migrate legacy project model into projectAgentOverrides', async () => {
+      const storePath = path.join(USER_DATA_PATH, 'store', 'projects.json');
+      writeFileSync(storePath, JSON.stringify({
+        projects: [
+          {
+            id: 'legacy-project',
+            name: 'Legacy Project',
+            path: TEST_PROJECT_PATH,
+            autoBuildPath: '.auto-claude',
+            settings: {
+              model: 'sonnet',
+              memoryBackend: 'file',
+              linearSync: false,
+              notifications: {
+                onTaskComplete: true,
+                onTaskFailed: true,
+                onReviewNeeded: true,
+                sound: false
+              }
+            },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        ],
+        settings: {}
+      }));
+
+      const { ProjectStore } = await import('../project-store');
+      const store = new ProjectStore();
+
+      const [project] = store.getProjects();
+      expect(project.settings).not.toHaveProperty('model');
+      expect(project.settings.projectAgentOverrides?.customPhaseModels).toEqual({
+        spec: 'sonnet',
+        planning: 'sonnet',
+        coding: 'sonnet',
+        qa: 'sonnet'
+      });
+    });
+
     it('should return empty array when no projects', async () => {
       const { ProjectStore } = await import('../project-store');
       const store = new ProjectStore();
@@ -214,7 +264,7 @@ describe('ProjectStore', () => {
       const { ProjectStore } = await import('../project-store');
       const store = new ProjectStore();
 
-      const result = store.updateProjectSettings('nonexistent-id', { model: 'sonnet' });
+      const result = store.updateProjectSettings('nonexistent-id', { useClaudeMd: false });
 
       expect(result).toBeUndefined();
     });
@@ -225,12 +275,24 @@ describe('ProjectStore', () => {
 
       const project = store.addProject(TEST_PROJECT_PATH);
       const updated = store.updateProjectSettings(project.id, {
-        model: 'sonnet',
+        projectAgentOverrides: {
+          customPhaseModels: {
+            spec: 'haiku',
+            planning: 'sonnet',
+            coding: 'opus',
+            qa: 'sonnet'
+          }
+        },
         linearSync: true
       });
 
       expect(updated).toBeDefined();
-      expect(updated?.settings.model).toBe('sonnet');
+      expect(updated?.settings.projectAgentOverrides?.customPhaseModels).toEqual({
+        spec: 'haiku',
+        planning: 'sonnet',
+        coding: 'opus',
+        qa: 'sonnet'
+      });
       expect(updated?.settings.linearSync).toBe(true);
     });
 
@@ -244,7 +306,7 @@ describe('ProjectStore', () => {
       // Small delay to ensure timestamp difference
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const updated = store.updateProjectSettings(project.id, { model: 'haiku' });
+      const updated = store.updateProjectSettings(project.id, { useClaudeMd: false });
 
       expect(updated?.updatedAt.getTime()).toBeGreaterThan(originalUpdatedAt.getTime());
     });
@@ -254,12 +316,26 @@ describe('ProjectStore', () => {
       const store = new ProjectStore();
 
       const project = store.addProject(TEST_PROJECT_PATH);
-      store.updateProjectSettings(project.id, { model: 'sonnet' });
+      store.updateProjectSettings(project.id, {
+        projectAgentOverrides: {
+          customPhaseModels: {
+            spec: 'haiku',
+            planning: 'sonnet',
+            coding: 'opus',
+            qa: 'sonnet'
+          }
+        }
+      });
 
       // Read directly from file
       const storePath = path.join(USER_DATA_PATH, 'store', 'projects.json');
       const content = JSON.parse(readFileSync(storePath, 'utf-8'));
-      expect(content.projects[0].settings.model).toBe('sonnet');
+      expect(content.projects[0].settings.projectAgentOverrides.customPhaseModels).toEqual({
+        spec: 'haiku',
+        planning: 'sonnet',
+        coding: 'opus',
+        qa: 'sonnet'
+      });
     });
   });
 

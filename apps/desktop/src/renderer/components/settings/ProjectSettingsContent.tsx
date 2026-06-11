@@ -10,13 +10,14 @@ import { SectionRouter } from './sections/SectionRouter';
 import { createHookProxy } from './utils/hookProxyFactory';
 import type { Project } from '../../../shared/types';
 
-export type ProjectSettingsSection = 'general' | 'linear' | 'github' | 'gitlab' | 'memory';
+export type ProjectSettingsSection = 'general' | 'agent-settings' | 'diagnostics' | 'linear' | 'github' | 'gitlab' | 'memory' | 'mcp';
 
 interface ProjectSettingsContentProps {
   project: Project | undefined;
   activeSection: ProjectSettingsSection;
   isOpen: boolean;
   onHookReady: (hook: UseProjectSettingsReturn | null) => void;
+  onOpenGlobalMcpSettings?: () => void;
 }
 
 /**
@@ -27,7 +28,8 @@ export function ProjectSettingsContent({
   project,
   activeSection,
   isOpen,
-  onHookReady
+  onHookReady,
+  onOpenGlobalMcpSettings
 }: ProjectSettingsContentProps) {
   const { t } = useTranslation('settings');
 
@@ -49,6 +51,7 @@ export function ProjectSettingsContent({
       activeSection={activeSection}
       isOpen={isOpen}
       onHookReady={onHookReady}
+      onOpenGlobalMcpSettings={onOpenGlobalMcpSettings}
     />
   );
 }
@@ -61,12 +64,14 @@ function ProjectSettingsContentInner({
   project,
   activeSection,
   isOpen,
-  onHookReady
+  onHookReady,
+  onOpenGlobalMcpSettings
 }: {
   project: Project;
   activeSection: ProjectSettingsSection;
   isOpen: boolean;
   onHookReady: (hook: UseProjectSettingsReturn | null) => void;
+  onOpenGlobalMcpSettings?: () => void;
 }) {
   const hook = useProjectSettings(project, isOpen);
 
@@ -148,6 +153,7 @@ function ProjectSettingsContentInner({
         isCheckingLinear={isCheckingLinear}
         handleInitialize={handleInitialize}
         onOpenLinearImport={() => setShowLinearImportModal(true)}
+        onOpenGlobalMcpSettings={onOpenGlobalMcpSettings}
       />
 
       <ErrorDisplay error={error} envError={envError} />

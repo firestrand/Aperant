@@ -301,10 +301,12 @@ export interface ImplementationPlan {
 
 export interface Phase {
   phase: number;
+  id?: string | number;
   name: string;
   type: string;
   subtasks: PlanSubtask[];
-  depends_on?: number[];
+  depends_on?: Array<string | number>;
+  parallel_safe?: boolean;
 }
 
 export interface PlanSubtask {

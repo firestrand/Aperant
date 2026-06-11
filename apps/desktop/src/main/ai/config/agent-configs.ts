@@ -7,6 +7,9 @@
  * Single source of truth for agent type → tools → MCP servers mapping.
  * This enables phase-aware tool control and context window optimization.
  *
+ * Source/inspiration notes follow the Oh My OpenAgent convention of keeping
+ * direct-source or inspiration attribution near the agent definition.
+ *
  * Tool lists are organized by category:
  * - Base tools: Core file operations (Read, Write, Edit, etc.)
  * - Web tools: Documentation and research (WebFetch, WebSearch)
@@ -164,6 +167,8 @@ export interface AgentConfig {
   autoClaudeTools: readonly string[];
   /** Default thinking level for this agent */
   thinkingDefault: ThinkingLevel;
+  /** Optional direct-source or inspiration attribution for copied/mimicked agent patterns */
+  sourceNote?: string;
 }
 
 // =============================================================================
@@ -195,12 +200,16 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     mcpServers: ['context7'],
     autoClaudeTools: [],
     thinkingDefault: 'high',
+    sourceNote:
+      'Workflow rubric inspired by oh-my-openagent Prometheus/Metis/Momus executable-planning concepts.',
   },
   spec_critic: {
     tools: [...SPEC_TOOLS],
     mcpServers: ['context7'],
     autoClaudeTools: [],
     thinkingDefault: 'high',
+    sourceNote:
+      'Workflow rubric inspired by oh-my-openagent Prometheus/Metis/Momus executable-planning concepts.',
   },
   spec_discovery: {
     tools: [...SPEC_TOOLS],
@@ -255,6 +264,8 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
       TOOL_UPDATE_SUBTASK_STATUS,
     ],
     thinkingDefault: 'high',
+    sourceNote:
+      'Parallel coding readiness inspired by oh-my-openagent team-task claiming, dependency, and bounded fan-out concepts.',
   },
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -271,6 +282,8 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
       TOOL_RECORD_DISCOVERY,
     ],
     thinkingDefault: 'high',
+    sourceNote:
+      'Agile planning contract inspired by oh-my-openagent Prometheus/Atlas dependency, handoff, and WIP concepts.',
   },
   coder: {
     tools: [...ALL_BUILTIN_TOOLS],
@@ -284,6 +297,8 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
       TOOL_GET_SESSION_CONTEXT,
     ],
     thinkingDefault: 'low',
+    sourceNote:
+      'Focused execution and blocker handoff inspired by oh-my-openagent Sisyphus-Junior/team-task workflow concepts.',
   },
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -299,6 +314,8 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
       TOOL_GET_SESSION_CONTEXT,
     ],
     thinkingDefault: 'high',
+    sourceNote:
+      'Evidence gate inspired by oh-my-openagent review-work, Atlas verification, and Hephaestus manual-QA concepts.',
   },
   qa_fixer: {
     tools: [...ALL_BUILTIN_TOOLS],
@@ -311,6 +328,8 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
       TOOL_RECORD_GOTCHA,
     ],
     thinkingDefault: 'medium',
+    sourceNote:
+      'Proof-oriented fix loop inspired by oh-my-openagent QA/verification workflow concepts.',
   },
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -351,6 +370,8 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     mcpServers: ['context7'],
     autoClaudeTools: [],
     thinkingDefault: 'high',
+    sourceNote:
+      'Inspired by oh-my-openagent review-work five-lane verification and specialist orchestration pattern.',
   },
   pr_followup_parallel: {
     tools: [...ALL_BUILTIN_TOOLS],
@@ -375,24 +396,32 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     mcpServers: [],
     autoClaudeTools: [],
     thinkingDefault: 'medium',
+    sourceNote:
+      'Inspired by oh-my-openagent review-work five-lane verification and specialist orchestration pattern.',
   },
   pr_quality_specialist: {
     tools: [...BASE_READ_TOOLS],
     mcpServers: [],
     autoClaudeTools: [],
     thinkingDefault: 'medium',
+    sourceNote:
+      'Inspired by oh-my-openagent review-work five-lane verification and specialist orchestration pattern.',
   },
   pr_logic_specialist: {
     tools: [...BASE_READ_TOOLS],
     mcpServers: [],
     autoClaudeTools: [],
     thinkingDefault: 'medium',
+    sourceNote:
+      'Inspired by oh-my-openagent review-work five-lane verification and specialist orchestration pattern.',
   },
   pr_codebase_fit_specialist: {
     tools: [...BASE_READ_TOOLS],
     mcpServers: [],
     autoClaudeTools: [],
     thinkingDefault: 'medium',
+    sourceNote:
+      'Inspired by oh-my-openagent review-work five-lane verification and specialist orchestration pattern.',
   },
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -482,6 +511,7 @@ const MCP_SERVER_NAME_MAP: Record<string, string> = {
   linear: 'linear',
   electron: 'electron',
   puppeteer: 'puppeteer',
+  serena: 'serena',
   'auto-claude': 'auto-claude',
 };
 
@@ -523,6 +553,8 @@ export interface McpServerResolveOptions {
   puppeteerMcpEnabled?: boolean;
   /** Whether Context7 is enabled (default: true) */
   context7Enabled?: boolean;
+  /** Whether Serena codebase tools are globally enabled */
+  serenaEnabled?: boolean;
   /** Per-agent MCP additions (comma-separated server names) */
   agentMcpAdd?: string;
   /** Per-agent MCP removals (comma-separated server names) */
@@ -555,6 +587,10 @@ export function getRequiredMcpServers(
   if (options.context7Enabled === false) {
     const idx = servers.indexOf('context7');
     if (idx !== -1) servers.splice(idx, 1);
+  }
+
+  if (options.serenaEnabled && !servers.includes('serena')) {
+    servers.push('serena');
   }
 
   // Handle optional servers (e.g., Linear)

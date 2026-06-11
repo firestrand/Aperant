@@ -21,6 +21,7 @@ import { withProjectOrNull } from './utils/project-middleware';
 import { createIPCCommunicators } from './utils/ipc-communicator';
 import { AgentManager } from '../../agent/agent-manager';
 import { BatchProcessor } from '../../ai/runners/github/batch-processor';
+import { getActiveProviderFeatureSettings } from '../feature-settings-helper';
 import type { GitHubIssue } from '../../ai/runners/github/duplicate-detector';
 import type { ModelShorthand, ThinkingLevel } from '../../ai/config/types';
 
@@ -129,6 +130,17 @@ function getAutoFixConfig(project: Project): AutoFixConfig {
     requireHumanApproval: true,
     model: 'claude-sonnet-4-6',
     thinkingLevel: 'medium',
+  };
+}
+
+function getGitHubBatchSettings(project: Project): { model: ModelShorthand; thinkingLevel: ThinkingLevel } {
+  const { model, thinkingLevel } = getActiveProviderFeatureSettings(
+    'githubIssues',
+    project.settings.projectAgentOverrides,
+  );
+  return {
+    model: model as ModelShorthand,
+    thinkingLevel: thinkingLevel as ThinkingLevel,
   };
 }
 
@@ -595,10 +607,7 @@ export function registerAutoFixHandlers(
           });
 
           // Use TypeScript BatchProcessor instead of Python subprocess
-          const batchProcessor = new BatchProcessor({
-            model: 'sonnet' as ModelShorthand,
-            thinkingLevel: 'low' as ThinkingLevel,
-          });
+          const batchProcessor = new BatchProcessor(getGitHubBatchSettings(project));
           const suggestions = await batchProcessor.groupIssues(issuesToBatch);
           const engineBatches = batchProcessor.buildBatches(issuesToBatch, suggestions);
 
@@ -759,10 +768,7 @@ export function registerAutoFixHandlers(
           sendProgress({ phase: 'analyzing', progress: 40, message: `Analyzing ${newIssues.length} issues...` });
 
           // Use TypeScript BatchProcessor for AI-powered grouping analysis
-          const batchProcessor = new BatchProcessor({
-            model: 'sonnet' as ModelShorthand,
-            thinkingLevel: 'low' as ThinkingLevel,
-          });
+          const batchProcessor = new BatchProcessor(getGitHubBatchSettings(project));
           const suggestions = newIssues.length > 0 ? await batchProcessor.groupIssues(newIssues) : [];
 
           // Transform to AnalyzePreviewResult format

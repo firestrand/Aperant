@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useActiveProvider } from '../../hooks/useActiveProvider';
-import { getProviderModelLabel } from '../../../shared/utils/model-display';
+import { formatRawModelLabel, getProviderModelLabel } from '../../../shared/utils/model-display';
 import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -11,7 +11,13 @@ import {
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
   PHASE_KEYS,
-  getProviderPreset
+  getProviderPreset,
+  getProviderPresetOrFallback,
+  buildSimpleModePhaseModels,
+  buildSimpleModePhaseThinking,
+  buildSimpleModeFeatureModels,
+  buildSimpleModeFeatureThinking,
+  resolveSimpleModeBaseModel
 } from '../../../shared/constants';
 import { useSettingsStore, saveSettings, saveProviderAgentConfig } from '../../stores/settings-store';
 import { MultiProviderModelSelect } from './MultiProviderModelSelect';
@@ -38,9 +44,11 @@ const iconMap: Record<string, React.ElementType> = {
  */
 interface AgentProfileSettingsProps {
   provider?: BuiltinProvider;
+  refreshTrigger?: number;
+  advanced?: boolean;
 }
 
-export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
+export function AgentProfileSettings({ provider, refreshTrigger, advanced = true }: AgentProfileSettingsProps) {
   const { t } = useTranslation('settings');
   const settings = useSettingsStore((state) => state.settings);
   const { provider: activeProvider } = useActiveProvider();
@@ -55,21 +63,30 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
     [selectedProfileId]
   );
 
+  const resolvedProvider = provider ?? activeProvider ?? 'anthropic';
+
   // Get profile's default phase config - provider-aware
   const providerPreset = provider
     ? getProviderPreset(provider, selectedProfileId)
     : null;
   const profilePhaseModels = providerPreset?.phaseModels ?? selectedProfile.phaseModels ?? DEFAULT_PHASE_MODELS;
   const profilePhaseThinking = providerPreset?.phaseThinking ?? selectedProfile.phaseThinking ?? DEFAULT_PHASE_THINKING;
+  const simpleBaseModel = resolveSimpleModeBaseModel(resolvedProvider, selectedProfileId, providerConfig?.simpleBaseModel);
+  const simplePhaseModels = buildSimpleModePhaseModels(simpleBaseModel);
+  const simplePhaseThinking = buildSimpleModePhaseThinking(resolvedProvider, selectedProfileId);
 
-  // Get current phase config from settings (custom) or fall back to profile defaults
+  // Get current phase config from settings (custom) or fall back to profile/simple defaults
   // When viewing a provider tab, skip global fallback — use provider-specific config or preset defaults
-  const currentPhaseModels: PhaseModelConfig = provider
-    ? (providerConfig?.customPhaseModels ?? profilePhaseModels)
-    : (settings.customPhaseModels ?? profilePhaseModels);
-  const currentPhaseThinking: PhaseThinkingConfig = provider
-    ? (providerConfig?.customPhaseThinking ?? profilePhaseThinking)
-    : (settings.customPhaseThinking ?? profilePhaseThinking);
+  const currentPhaseModels: PhaseModelConfig = advanced
+    ? (provider
+      ? (providerConfig?.customPhaseModels ?? simplePhaseModels)
+      : (settings.customPhaseModels ?? profilePhaseModels))
+    : simplePhaseModels;
+  const currentPhaseThinking: PhaseThinkingConfig = advanced
+    ? (provider
+      ? (providerConfig?.customPhaseThinking ?? simplePhaseThinking)
+      : (settings.customPhaseThinking ?? profilePhaseThinking))
+    : simplePhaseThinking;
 
   /**
    * Check if current config differs from the selected profile's defaults
@@ -91,12 +108,21 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
     const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === profileId);
     if (!profile) return;
 
+    const baseModel = simpleBaseModel;
+    const phaseModels = buildSimpleModePhaseModels(baseModel);
+    const phaseThinking = buildSimpleModePhaseThinking(resolvedProvider, profileId);
+    const featureModels = buildSimpleModeFeatureModels(baseModel);
+    const featureThinking = buildSimpleModeFeatureThinking(resolvedProvider);
+
     if (provider) {
       // When selecting on a provider tab, deactivate cross-provider mode
       await saveProviderAgentConfig(provider, {
         selectedAgentProfile: profileId,
-        customPhaseModels: undefined,
-        customPhaseThinking: undefined,
+        simpleBaseModel: baseModel,
+        customPhaseModels: phaseModels,
+        customPhaseThinking: phaseThinking,
+        featureModels,
+        featureThinking,
       });
       // Deactivate cross-provider mode when a provider profile is selected
       if (settings.customMixedProfileActive) {
@@ -106,8 +132,34 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
       await saveSettings({
         selectedAgentProfile: profileId,
         customMixedProfileActive: false,
-        customPhaseModels: undefined,
-        customPhaseThinking: undefined,
+        customPhaseModels: phaseModels,
+        customPhaseThinking: phaseThinking,
+        featureModels,
+        featureThinking,
+      });
+    }
+  };
+
+  const handleSimpleBaseModelChange = async (baseModel: string) => {
+    const phaseModels = buildSimpleModePhaseModels(baseModel);
+    const phaseThinking = buildSimpleModePhaseThinking(resolvedProvider, selectedProfileId);
+    const featureModels = buildSimpleModeFeatureModels(baseModel);
+    const featureThinking = buildSimpleModeFeatureThinking(resolvedProvider);
+
+    if (provider) {
+      await saveProviderAgentConfig(provider, {
+        simpleBaseModel: baseModel,
+        customPhaseModels: phaseModels,
+        customPhaseThinking: phaseThinking,
+        featureModels,
+        featureThinking,
+      });
+    } else {
+      await saveSettings({
+        customPhaseModels: phaseModels,
+        customPhaseThinking: phaseThinking,
+        featureModels,
+        featureThinking,
       });
     }
   };
@@ -133,16 +185,26 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
   };
 
   const handleResetToProfileDefaults = async () => {
-    // Reset to the selected profile's defaults
+    const baseModel = getProviderPresetOrFallback(resolvedProvider, selectedProfileId).primaryModel;
+    const phaseModels = buildSimpleModePhaseModels(baseModel);
+    const phaseThinking = buildSimpleModePhaseThinking(resolvedProvider, selectedProfileId);
+    const featureModels = buildSimpleModeFeatureModels(baseModel);
+    const featureThinking = buildSimpleModeFeatureThinking(resolvedProvider);
+
     if (provider) {
       await saveProviderAgentConfig(provider, {
-        customPhaseModels: undefined,
-        customPhaseThinking: undefined,
+        simpleBaseModel: baseModel,
+        customPhaseModels: phaseModels,
+        customPhaseThinking: phaseThinking,
+        featureModels,
+        featureThinking,
       });
     } else {
       await saveSettings({
-        customPhaseModels: undefined,
-        customPhaseThinking: undefined,
+        customPhaseModels: phaseModels,
+        customPhaseThinking: phaseThinking,
+        featureModels,
+        featureThinking,
       });
     }
   };
@@ -156,7 +218,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
       return getProviderModelLabel(modelValue, resolvedProvider);
     }
     const model = AVAILABLE_MODELS.find((m) => m.value === modelValue);
-    return model?.label || modelValue;
+    return model?.label || formatRawModelLabel(modelValue);
   };
 
   /**
@@ -177,19 +239,21 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
 
     // Get provider-specific preset for badge display
     const cardProviderPreset = provider ? getProviderPreset(provider, profile.id) : null;
-    const displayModel = cardProviderPreset?.primaryModel ?? profile.model;
+    const displayModel = isSelected ? simpleBaseModel : (cardProviderPreset?.primaryModel ?? profile.model);
     const displayThinking = cardProviderPreset?.primaryThinking ?? profile.thinkingLevel;
 
     return (
       <button
         key={profile.id}
         onClick={() => handleSelectProfile(profile.id)}
+        disabled={advanced}
         className={cn(
           'relative w-full rounded-lg border p-4 text-left transition-all duration-200',
           'hover:border-primary/50 hover:shadow-sm',
           isSelected
             ? 'border-primary bg-primary/5'
-            : 'border-border bg-card'
+            : 'border-border bg-card',
+          advanced && 'cursor-not-allowed opacity-60 hover:border-border hover:shadow-none'
         )}
       >
         {/* Selected indicator */}
@@ -230,7 +294,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
 
             {/* Model and thinking level badges */}
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {displayModel === '' ? (
+              {displayModel === 'ollama-setup-required' ? (
                 <span className="inline-flex items-center rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
                   {(() => {
                     const customModels = providerConfig?.customPhaseModels;
@@ -265,13 +329,44 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
           </p>
         </div>
 
+        <div className={cn('rounded-lg border border-border bg-card p-4', advanced && 'opacity-60')}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex-1 space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                {t('agentProfile.simpleBaseModel.label')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('agentProfile.simpleBaseModel.description')}
+              </p>
+              <MultiProviderModelSelect
+                value={simpleBaseModel}
+                onChange={handleSimpleBaseModelChange}
+                filterProvider={provider}
+                refreshTrigger={refreshTrigger}
+                disabled={advanced}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResetToProfileDefaults}
+              disabled={advanced}
+              className="shrink-0"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              {t('agentProfile.simpleBaseModel.resetToLatest')}
+            </Button>
+          </div>
+        </div>
+
         {/* Profile cards - 2 column grid on larger screens */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {DEFAULT_AGENT_PROFILES.map(renderProfileCard)}
         </div>
 
         {/* Phase Configuration - collapsible card, shared between all profiles */}
-        <div className="mt-6 rounded-lg border border-border bg-card">
+        {advanced && <div className="mt-6 rounded-lg border border-border bg-card">
           {/* Header - Collapsible */}
           <button
             type="button"
@@ -329,6 +424,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
                           value={currentPhaseModels[phase]}
                           onChange={(value) => handlePhaseModelChange(phase, value)}
                           filterProvider={provider}
+                          refreshTrigger={refreshTrigger}
                         />
                       </div>
                       {/* Thinking Level Select (provider-aware) */}
@@ -349,7 +445,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
               </p>
             </div>
           )}
-        </div>
+        </div>}
 
       </div>
   );

@@ -256,19 +256,16 @@ async function runSingleSession(
   skipPhaseLogging = false,
   outputSchema?: import('zod').ZodSchema,
 ): Promise<SessionResult> {
-  // Use queue-resolved model ID from baseSession (already mapped to the correct
-  // provider-specific model, e.g., 'gpt-5.3-codex' for OpenAI Codex).
-  // getPhaseModel() only knows local shorthands (opus → claude-opus-4-6) and
-  // would create a mismatch when the provider queue selected a non-Anthropic account.
-  const phaseModelId = baseSession.modelId;
+  const phaseSession = baseSession.phaseAuth?.[phase] ?? baseSession;
+  const phaseModelId = phaseSession.modelId;
   const phaseThinking = await getPhaseThinking(specDir, phase);
 
   const model = createProvider({
     config: {
-      provider: baseSession.provider as SupportedProvider,
-      apiKey: baseSession.apiKey,
-      baseURL: baseSession.baseURL,
-      oauthTokenFilePath: baseSession.oauthTokenFilePath,
+      provider: phaseSession.provider as SupportedProvider,
+      apiKey: phaseSession.apiKey,
+      baseURL: phaseSession.baseURL,
+      oauthTokenFilePath: phaseSession.oauthTokenFilePath,
     },
     modelId: phaseModelId,
   });
@@ -328,15 +325,15 @@ async function runSingleSession(
         projectId: config.projectId,
       });
     },
-    onAuthRefresh: baseSession.configDir
-      ? () => refreshOAuthTokenReactive(baseSession.configDir as string)
+    onAuthRefresh: phaseSession.configDir
+      ? () => refreshOAuthTokenReactive(phaseSession.configDir as string)
       : undefined,
-    onModelRefresh: baseSession.configDir
+    onModelRefresh: phaseSession.configDir
       ? (newToken: string) => createProvider({
           config: {
-            provider: baseSession.provider as SupportedProvider,
+            provider: phaseSession.provider as SupportedProvider,
             apiKey: newToken,
-            baseURL: baseSession.baseURL,
+            baseURL: phaseSession.baseURL,
           },
           modelId: phaseModelId,
         })
@@ -347,9 +344,9 @@ async function runSingleSession(
   try {
     sessionResult = await runContinuableSession(sessionConfig, runnerOptions, {
       contextWindowLimit,
-      apiKey: baseSession.apiKey,
-      baseURL: baseSession.baseURL,
-      oauthTokenFilePath: baseSession.oauthTokenFilePath,
+      apiKey: phaseSession.apiKey,
+      baseURL: phaseSession.baseURL,
+      oauthTokenFilePath: phaseSession.oauthTokenFilePath,
     });
   } catch (error) {
     // Ensure log cleanup happens on failure
@@ -392,9 +389,17 @@ async function run(): Promise<void> {
         linearEnabled: session.mcpOptions?.linearEnabled ?? false,
         electronMcpEnabled: session.mcpOptions?.electronMcpEnabled ?? false,
         puppeteerMcpEnabled: session.mcpOptions?.puppeteerMcpEnabled ?? false,
+        serenaEnabled: session.mcpOptions?.serenaEnabled ?? false,
         projectCapabilities: session.mcpOptions?.projectCapabilities,
         agentMcpAdd: session.mcpOptions?.agentMcpAdd,
         agentMcpRemove: session.mcpOptions?.agentMcpRemove,
+        customServerIds: session.mcpOptions?.customMcpServers?.map((server) => server.id),
+      }, {
+        linearApiKey: session.mcpOptions?.linearApiKey,
+        memoryMcpUrl: session.mcpOptions?.memoryMcpUrl,
+        customMcpServers: session.mcpOptions?.customMcpServers,
+        serenaLaunchWebUi: session.mcpOptions?.serenaLaunchWebUi,
+        specDir: session.mcpOptions?.specDir ?? session.specDir,
       });
       if (mcpClients.length > 0) {
         postLog(`MCP initialized: ${mcpClients.map(c => c.serverId).join(', ')}`);

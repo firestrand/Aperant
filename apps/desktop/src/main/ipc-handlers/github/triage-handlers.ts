@@ -11,15 +11,11 @@ import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import path from 'path';
 import fs from 'fs';
-import {
-  IPC_CHANNELS,
-  DEFAULT_FEATURE_MODELS,
-  DEFAULT_FEATURE_THINKING,
-} from '../../../shared/constants';
+import { IPC_CHANNELS } from '../../../shared/constants';
 import { getGitHubConfig, githubFetch } from './utils';
-import { readSettingsFile } from '../../settings-utils';
+import { getActiveProviderFeatureSettings } from '../feature-settings-helper';
 import { getAugmentedEnv } from '../../env-utils';
-import type { Project, AppSettings } from '../../../shared/types';
+import type { Project } from '../../../shared/types';
 import { createContextLogger } from './utils/logger';
 import { withProjectOrNull } from './utils/project-middleware';
 import { createIPCCommunicators } from './utils/ipc-communicator';
@@ -231,16 +227,13 @@ function saveTriageResultToDisk(project: Project, result: TriageResult): void {
  * Get GitHub Issues model and thinking settings from app settings.
  * Returns the model shorthand (for TypeScript engine) and thinkingLevel.
  */
-function getGitHubIssuesSettings(): { modelShorthand: ModelShorthand; thinkingLevel: ThinkingLevel } {
-  const rawSettings = readSettingsFile() as Partial<AppSettings> | undefined;
-
-  const featureModels = rawSettings?.featureModels ?? DEFAULT_FEATURE_MODELS;
-  const featureThinking = rawSettings?.featureThinking ?? DEFAULT_FEATURE_THINKING;
-
-  const modelShorthand = (featureModels.githubIssues ??
-    DEFAULT_FEATURE_MODELS.githubIssues) as ModelShorthand;
-  const thinkingLevel = (featureThinking.githubIssues ??
-    DEFAULT_FEATURE_THINKING.githubIssues) as ThinkingLevel;
+function getGitHubIssuesSettings(project: Project): { modelShorthand: ModelShorthand; thinkingLevel: ThinkingLevel } {
+  const featureSettings = getActiveProviderFeatureSettings(
+    'githubIssues',
+    project.settings.projectAgentOverrides,
+  );
+  const modelShorthand = featureSettings.model as ModelShorthand;
+  const thinkingLevel = featureSettings.thinkingLevel as ThinkingLevel;
 
   debugLog('GitHub Issues settings', { modelShorthand, thinkingLevel });
 
@@ -295,7 +288,7 @@ async function runTriage(
     throw new Error('No GitHub configuration found for project');
   }
 
-  const { modelShorthand, thinkingLevel } = getGitHubIssuesSettings();
+  const { modelShorthand, thinkingLevel } = getGitHubIssuesSettings(project);
 
   debugLog('Starting TypeScript triage', { modelShorthand, thinkingLevel });
 

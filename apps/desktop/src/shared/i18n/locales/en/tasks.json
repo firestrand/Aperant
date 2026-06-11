@@ -353,5 +353,83 @@
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."
+  },
+  "workItems": {
+    "title": "Work Items",
+    "description": "Turn a spec, PRD, or implementation plan into dependency-linked tasks. Aperant will create one task per phase or section and wire dependencies so ready work can run in parallel.",
+    "inputTitle": "Spec, PRD, or implementation plan",
+    "inputDescription": "Paste implementation_plan.json, a Markdown spec, or a PRD. JSON plans can include phases, subtasks, and depends_on relationships.",
+    "loadFromTask": "Load from an existing task",
+    "selectTaskPlaceholder": "Select a task with an implementation plan...",
+    "loadPlan": "Load plan",
+    "loadErrorTitle": "Failed to load plan",
+    "loadErrorDescription": "Could not read implementation_plan.json for the selected task.",
+    "placeholder": "Paste implementation plan JSON, Markdown spec, or PRD text here...",
+    "create": "Create work items",
+    "creating": "Creating work items...",
+    "previewTitle": "Preview",
+    "previewDescription": "Review the phases and dependency links before creating tasks.",
+    "emptyPreview": "Paste a plan to preview generated work items.",
+    "dependsOn": "Depends on: {{dependencies}}",
+    "phaseMeta": "{{subtasks}} subtasks · {{dependencies}} dependencies",
+    "successTitle": "Work items created",
+    "successDescription": "Created {{count}} dependency-linked task(s) in {{project}}.",
+    "partialSuccessTitle": "Some work items were not created",
+    "partialSuccessDescription": "Created {{created}} task(s); {{failed}} phase(s) failed.",
+    "errorTitle": "Failed to create work items",
+    "errorDescription": "An unknown error occurred while creating work items.",
+    "target": {
+      "title": "Target project",
+      "description": "Choose where the generated tasks will be created.",
+      "createNew": "New project",
+      "selected": "Destination: {{project}}",
+      "unknownProject": "Unknown project"
+    },
+    "workflow": {
+      "title": "Draft workflow",
+      "description": "Review and approve the draft before task creation writes anything to a project.",
+      "review": "Review draft",
+      "revise": "Revise",
+      "approve": "Approve",
+      "approvalRequired": "Approve the draft before creating work items.",
+      "stages": {
+        "ideation": "Ideation",
+        "review": "Review",
+        "revise": "Revise",
+        "approved": "Approved"
+      }
+    },
+    "confirm": {
+      "title": "Create work items?",
+      "description": "Aperant will create dependency-linked tasks in {{project}}.",
+      "summary": "{{phases}} phase(s) · {{subtasks}} task(s)",
+      "cancel": "Cancel",
+      "create": "Create tasks"
+    },
+    "stats": {
+      "phases": "Phases",
+      "subtasks": "Subtasks",
+      "dependencies": "Dependencies"
+    },
+    "fallbacks": {
+      "subtask": "Subtask {{number}}",
+      "phase": "Phase {{number}}",
+      "pastedSpecFile": "pasted-work-items.txt",
+      "importedSpecPhase": "Imported spec",
+      "importedSpecSubtask": "Review source document"
+    },
+    "descriptionLabels": {
+      "parentSpec": "Parent spec",
+      "specContext": "Spec context",
+      "phase": "Phase",
+      "type": "Type",
+      "workItems": "Work items",
+      "finalAcceptanceCriteria": "Final acceptance criteria"
+    },
+    "errors": {
+      "invalidJson": "The pasted content is not valid JSON.",
+      "invalidRoot": "The pasted JSON must be an object.",
+      "missingPhases": "The plan must include at least one phase."
+    }
   }
 }

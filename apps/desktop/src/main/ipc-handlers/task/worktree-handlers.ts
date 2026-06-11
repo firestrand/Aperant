@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, shell, app } from 'electron';
-import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, MODEL_ID_MAP, THINKING_BUDGET_MAP, getSpecsDir } from '../../../shared/constants';
-import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePROptions, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, SupportedCLI, AppSettings } from '../../../shared/types';
+import { IPC_CHANNELS, AUTO_BUILD_PATHS, THINKING_BUDGET_MAP, getSpecsDir } from '../../../shared/constants';
+import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePROptions, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, SupportedCLI } from '../../../shared/types';
 import path from 'path';
 import { minimatch } from 'minimatch';
 import { existsSync, readdirSync, statSync, readFileSync, promises as fsPromises } from 'fs';
@@ -26,6 +26,7 @@ import { cleanupWorktree } from '../../utils/worktree-cleanup';
 import { killProcessGracefully } from '../../platform';
 import { stripAnsiCodes } from '../../../shared/utils/ansi-sanitizer';
 import { taskStateManager } from '../../task-state-manager';
+import { getActiveProviderFeatureSettings } from '../feature-settings-helper';
 
 // Regex pattern for validating git branch names
 export const GIT_BRANCH_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._/-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/;
@@ -95,41 +96,16 @@ const PRINTABLE_CHARS_REGEX = /^[\x20-\x7E\u00A0-\uFFFF]*$/;
 const PR_CREATION_TIMEOUT_MS = 120000;
 
 /**
- * Read utility feature settings (for commit message, merge resolver) from settings file
+ * Read utility feature settings (for commit message, merge resolver) from settings file.
  */
-function getUtilitySettings(): { model: string; modelId: string; thinkingLevel: string; thinkingBudget: number | null } {
-  const settingsPath = path.join(app.getPath('userData'), 'settings.json');
+function getUtilitySettings(projectOverrides?: import('../../../shared/types/project').ProjectAgentOverrides): { model: string; modelId: string; thinkingLevel: string; thinkingBudget: number | null } {
+  const { model, thinkingLevel } = getActiveProviderFeatureSettings('utility', projectOverrides);
 
-  try {
-    if (existsSync(settingsPath)) {
-      const content = readFileSync(settingsPath, 'utf-8');
-      const settings: AppSettings = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(content) };
-
-      // Get utility-specific settings
-      const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-      const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
-
-      const model = featureModels.utility || DEFAULT_FEATURE_MODELS.utility;
-      const thinkingLevel = featureThinking.utility || DEFAULT_FEATURE_THINKING.utility;
-
-      return {
-        model,
-        modelId: MODEL_ID_MAP[model] || MODEL_ID_MAP.haiku,
-        thinkingLevel,
-        thinkingBudget: thinkingLevel in THINKING_BUDGET_MAP ? THINKING_BUDGET_MAP[thinkingLevel] : THINKING_BUDGET_MAP.low
-      };
-    }
-  } catch (error) {
-    // Log parse errors to help diagnose corrupted settings
-    console.warn('[getUtilitySettings] Failed to parse settings.json:', error);
-  }
-
-  // Return defaults if settings file doesn't exist or fails to parse
   return {
-    model: DEFAULT_FEATURE_MODELS.utility,
-    modelId: MODEL_ID_MAP[DEFAULT_FEATURE_MODELS.utility],
-    thinkingLevel: DEFAULT_FEATURE_THINKING.utility,
-    thinkingBudget: THINKING_BUDGET_MAP[DEFAULT_FEATURE_THINKING.utility]
+    model,
+    modelId: model,
+    thinkingLevel,
+    thinkingBudget: thinkingLevel in THINKING_BUDGET_MAP ? THINKING_BUDGET_MAP[thinkingLevel] : THINKING_BUDGET_MAP.low,
   };
 }
 
@@ -2007,7 +1983,7 @@ export function registerWorktreeHandlers(
           `(source: ${taskBaseBranch ? 'task metadata' : projectMainBranch ? 'project settings' : 'default'})`);
 
         // Get utility settings for merge resolver model selection
-        const utilitySettings = getUtilitySettings();
+        const utilitySettings = getUtilitySettings(project.settings.projectAgentOverrides);
         debug('Utility settings for merge:', utilitySettings);
 
         // Emit initial progress event so renderer shows the merge has started
@@ -2028,7 +2004,7 @@ export function registerWorktreeHandlers(
 
         // Build the AI resolver function using the merge-resolver runner
         const modelShorthand = (utilitySettings.model as ModelShorthand) || 'haiku';
-        const aiResolverFn = createMergeResolverFn(modelShorthand, 'low');
+        const aiResolverFn = createMergeResolverFn(modelShorthand, utilitySettings.thinkingLevel as Parameters<typeof createMergeResolverFn>[1]);
 
         // Create the merge orchestrator
         const storageDir = path.join(project.path, project.autoBuildPath || '.auto-claude');

@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import { generateText } from 'ai';
 import { createSimpleClient } from './ai/client/factory';
 import { getActiveProviderFeatureSettings } from './ipc-handlers/feature-settings-helper';
+import type { ProjectAgentOverrides } from '../shared/types/project';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -43,14 +44,14 @@ export class TerminalNameGenerator extends EventEmitter {
    * @param cwd - Current working directory for context
    * @returns Promise resolving to the generated name (2-3 words) or null on failure
    */
-  async generateName(command: string, cwd?: string): Promise<string | null> {
+  async generateName(command: string, cwd?: string, projectOverrides?: ProjectAgentOverrides): Promise<string | null> {
     const prompt = this.createNamePrompt(command, cwd);
 
     debug('Generating terminal name for command:', command.substring(0, 100) + '...');
 
     try {
       // Read the user's configured naming model for their active provider
-      const namingSettings = getActiveProviderFeatureSettings('naming');
+      const namingSettings = getActiveProviderFeatureSettings('naming', projectOverrides);
 
       const client = await createSimpleClient({
         systemPrompt: SYSTEM_PROMPT,
