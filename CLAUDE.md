@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 Aperant is an autonomous multi-agent coding framework that plans, builds, and validates software for you. It's a TypeScript-first Electron desktop application with a self-contained AI agent layer (Vercel AI SDK v6). A lightweight Python sidecar provides the optional Graphiti memory system.
 
-Aperant should now be treated as a long-lived independent fork of the starting Auto Claude project, not a temporary downstream patch set. Use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide to lineage, architectural divergence, selected donor-fork features, and future porting rules.
+Auto Claude was renamed upstream to Aperant; this repository was forked from that renamed codebase and is currently maintained separately while upstream Aperant 3.0 mergeability is evaluated. Use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide to lineage, conditional upstream path, selected additions from another Auto Claude-derived fork, and upstream-reconciliation guidance.
 
 > **Deep-dive reference:** [guides/fork-differences.md](guides/fork-differences.md) | **Frontend contributing:** [apps/desktop/CONTRIBUTING.md](apps/desktop/CONTRIBUTING.md)
 

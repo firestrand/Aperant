@@ -4,9 +4,9 @@ Thank you for your interest in contributing to Aperant! This document provides g
 
 ## Project Lineage
 
-Aperant began from the Auto Claude codebase, but it is now maintained as a long-lived independent fork with its own product direction and architecture. Contributions should target Aperant's current `apps/desktop` TypeScript/Electron codebase and Vercel AI SDK v6 agent runtime rather than attempting direct merges from the starting project or older forks.
+Auto Claude was renamed upstream to Aperant; this repository was forked from that renamed codebase and is currently maintained separately while upstream Aperant 3.0 mergeability is evaluated. Contributions should target this repository's current `apps/desktop` TypeScript/Electron codebase and Vercel AI SDK v6 agent runtime rather than assuming direct compatibility with upstream or older forks.
 
-Use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide to Aperant's lineage, architectural divergence, selected donor-fork features, and future porting rules.
+Use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide to the fork lineage, conditional upstream path, selected additions from another Auto Claude-derived fork, and upstream-reconciliation guidance.
 
 ## How to Contribute
 

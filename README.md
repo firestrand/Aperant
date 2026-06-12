@@ -2,7 +2,7 @@
 
 **Autonomous multi-agent coding framework that plans, builds, and validates software for you.**
 
-Aperant started from the Auto Claude codebase and is now a long-lived independent fork with its own TypeScript-first Electron architecture, Vercel AI SDK v6 agent runtime, and curated fork-feature adoption policy. See [guides/fork-differences.md](guides/fork-differences.md) for the full lineage and divergence guide.
+Auto Claude was renamed upstream to Aperant; this repository was forked from that renamed codebase and is currently maintained separately while upstream Aperant 3.0 mergeability is evaluated. It has its own TypeScript-first Electron architecture, Vercel AI SDK v6 agent runtime, and curated fork-feature adoption policy. See [guides/fork-differences.md](guides/fork-differences.md) for the full lineage and divergence guide.
 
 ![Aperant Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
@@ -88,7 +88,7 @@ Aperant started from the Auto Claude codebase and is now a long-lived independen
 | **Linear Integration** | Sync tasks with Linear for team progress tracking |
 | **Cross-Platform** | Native desktop apps for Windows, macOS, and Linux |
 | **Auto-Updates** | App updates automatically when new versions are released |
-| **Curated Fork Improvements** | Selected ideas from another Auto Claude-derived fork have been ported into Aperant as native, settings-gated features rather than direct merges |
+| **Curated Fork Improvements** | Selected ideas from another Auto Claude-derived fork have been ported into this fork as native, settings-gated features rather than direct merges |
 
 ---
 
@@ -128,7 +128,7 @@ Aperant/
 
 ## Development
 
-Aperant is developed as its own product line. When comparing against upstream Auto Claude or other forks, use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide and prefer porting concepts into Aperant's current `apps/desktop` architecture over copying older frontend/backend code directly.
+This fork is developed with local fixes and product choices while upstream Aperant 3.0 mergeability is evaluated. When comparing against upstream Aperant, Auto Claude, or other forks, use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide and prefer porting concepts into this repository's current `apps/desktop` architecture over copying older frontend/backend code directly.
 
 Want to build from source or contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) for complete development setup instructions.
 
