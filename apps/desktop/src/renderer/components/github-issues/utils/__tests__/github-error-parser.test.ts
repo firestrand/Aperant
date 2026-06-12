@@ -97,10 +97,8 @@ describe('parseGitHubError', () => {
     });
 
     it('should generate fallback message when reset time has passed', () => {
-      // Create a date in the past
-      const pastDate = new Date(Date.now() - 5 * 60 * 1000);
-      const isoString = pastDate.toISOString();
-      const result = parseGitHubError(`rate limit exceeded, resets at ${isoString}`);
+      const pastUnixTimestamp = Math.floor((Date.now() - 5 * 60 * 1000) / 1000);
+      const result = parseGitHubError(`X-RateLimit-Reset: ${pastUnixTimestamp}`);
       expect(result.type).toBe('rate_limit');
       expect(result.message).toContain('moment');
     });

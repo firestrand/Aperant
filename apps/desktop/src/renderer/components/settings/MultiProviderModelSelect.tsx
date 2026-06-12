@@ -1,10 +1,10 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Search, Check, Brain, Eye, Wrench, ExternalLink, Loader2 } from 'lucide-react';
 import { ALL_AVAILABLE_MODELS, resolveModelEquivalent, type ModelOption } from '@shared/constants/models';
 import { PROVIDER_REGISTRY } from '@shared/constants/providers';
 import type { BuiltinProvider } from '@shared/types/provider-account';
-import { useSettingsStore } from '@/stores/settings-store';
+import { useSettingsStore } from '../../stores/settings-store';
 import { cn } from '../../lib/utils';
 import { Input } from '../ui/input';
 
@@ -13,6 +13,8 @@ interface MultiProviderModelSelectProps {
   onChange: (value: string) => void;
   className?: string;
   filterProvider?: BuiltinProvider;  // When set, only show models for this provider
+  disabled?: boolean;
+  refreshTrigger?: number; // Increment this to force a refresh from parent
 }
 
 function formatContextWindow(size: number): string {
@@ -20,7 +22,7 @@ function formatContextWindow(size: number): string {
   return `${(size / 1000).toFixed(0)}K`;
 }
 
-export function MultiProviderModelSelect({ value, onChange, className, filterProvider }: MultiProviderModelSelectProps) {
+export function MultiProviderModelSelect({ value, onChange, className, filterProvider, disabled, refreshTrigger }: MultiProviderModelSelectProps) {
   const { t } = useTranslation(['settings']);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -28,14 +30,14 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
   const containerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const settings = useSettingsStore(s => s.settings);
-  const providerAccounts = settings.providerAccounts ?? [];
+  const providerAccounts = useSettingsStore(s => s.providerAccounts);
 
   // Dynamic Ollama model fetching
   const [ollamaModels, setOllamaModels] = useState<ModelOption[]>([]);
   const [ollamaLoading, setOllamaLoading] = useState(false);
 
   useEffect(() => {
+    void refreshTrigger;
     if (filterProvider && filterProvider !== 'ollama') return;
     // Only fetch if there's an Ollama account configured
     const hasOllamaAccount = providerAccounts.some(a => a.provider === 'ollama');
@@ -70,7 +72,7 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
     })();
 
     return () => controller.abort();
-  }, [filterProvider, providerAccounts]);
+  }, [filterProvider, providerAccounts, refreshTrigger]);
 
   // Determine if all OpenAI accounts are OAuth-only (Codex subscription)
   const openaiIsOAuthOnly = useMemo(() => {
@@ -86,48 +88,176 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
     return hasOAuth && hasApiKey;
   }, [providerAccounts]);
 
+  // Dynamic model fetching for other providers (Google, OpenAI/Codex, etc.)
+  const [dynamicModels, setDynamicModels] = useState<Map<BuiltinProvider, ModelOption[]>>(new Map());
+  const [dynamicLoading, setDynamicLoading] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    void refreshTrigger;
+    // Determine which providers to fetch models for
+    const providersToFetch: BuiltinProvider[] = [];
+    if (!filterProvider || filterProvider === 'google') {
+      if (providerAccounts.some(a => a.provider === 'google' && a.apiKey)) providersToFetch.push('google');
+    }
+    if (!filterProvider || filterProvider === 'openai') {
+      if (providerAccounts.some(a => a.provider === 'openai' && (a.apiKey || a.authType === 'oauth'))) providersToFetch.push('openai');
+    }
+    if (!filterProvider || filterProvider === 'anthropic') {
+      if (providerAccounts.some(a => a.provider === 'anthropic' && a.apiKey)) providersToFetch.push('anthropic');
+    }
+    if (!filterProvider || filterProvider === 'openai-compatible') {
+      if (providerAccounts.some(a => a.provider === 'openai-compatible' && a.baseUrl)) providersToFetch.push('openai-compatible');
+    }
+
+    if (providersToFetch.length === 0) {
+      setDynamicModels(new Map());
+      return;
+    }
+
+    const controller = new AbortController();
+
+    providersToFetch.forEach(async (provider) => {
+      setDynamicLoading(prev => ({ ...prev, [provider]: true }));
+      try {
+        // Fetch from all accounts for this provider to get a comprehensive list
+        const accounts = providerAccounts.filter(a => a.provider === provider && (a.apiKey || a.authType === 'oauth'));
+        if (accounts.length === 0) return;
+
+        const allModels: ModelOption[] = [];
+        const seenModelIds = new Set<string>();
+
+        for (const account of accounts) {
+          const result = await window.electronAPI.listProviderModels(provider, {
+            apiKey: account.authType === 'api-key' ? account.apiKey : undefined,
+            authType: account.authType,
+            oauthTokenFilePath: account.oauthTokenFilePath,
+            baseUrl: account.baseUrl
+          });
+
+          if (controller.signal.aborted) return;
+
+          if (result?.success && result.data?.models) {
+            for (const m of result.data.models) {
+              if (seenModelIds.has(m.id)) continue;
+              seenModelIds.add(m.id);
+
+              allModels.push({
+                value: m.id,
+                label: m.display_name || m.id,
+                provider,
+                description: provider === 'openai' && account.authType === 'oauth' ? 'Codex' : undefined,
+                // Infer basic capabilities if not in catalog
+                capabilities: {
+                  thinking: m.id.includes('thinking') || m.id.startsWith('o1') || m.id.startsWith('o3') || m.id.includes('codex'),
+                  tools: true,
+                  vision: m.id.includes('vision') || m.id.includes('gpt-4o') || m.id.includes('gemini-1.5') || m.id.includes('gemini-2.0'),
+                  contextWindow: m.id.includes('pro') || m.id.includes('1m') ? 1000000 : 128000
+                }
+              });
+            }
+          } else {
+            console.warn(`[MultiProviderModelSelect] Failed to fetch models for ${provider}:`, result?.error);
+          }
+        }
+
+        if (allModels.length > 0) {
+          setDynamicModels(prev => {
+            const next = new Map(prev);
+            next.set(provider, allModels);
+            return next;
+          });
+        }
+      } catch (error) {
+        console.error(`[MultiProviderModelSelect] Failed to fetch ${provider} models:`, error);
+      } finally {
+        if (!controller.signal.aborted) {
+          setDynamicLoading(prev => ({ ...prev, [provider]: false }));
+        }
+      }
+    });
+
+    return () => controller.abort();
+  }, [filterProvider, providerAccounts, refreshTrigger]);
+
   // Group models by provider, including custom models from openai-compatible accounts
   const groupedModels = useMemo(() => {
     const groups = new Map<BuiltinProvider, ModelOption[]>();
+
+    // 1. Initialize groups from static catalog (ALL_AVAILABLE_MODELS)
+    // Only if dynamic models aren't available yet or if we're not filtering
     for (const model of ALL_AVAILABLE_MODELS) {
-      // When filterProvider is set, only include models for that provider
       if (filterProvider && model.provider !== filterProvider) continue;
-      // Hide apiKeyOnly OpenAI models when all OpenAI accounts are OAuth (Codex subscription)
       if (model.apiKeyOnly && model.provider === 'openai' && openaiIsOAuthOnly) continue;
-      if (!groups.has(model.provider)) groups.set(model.provider, []);
-      groups.get(model.provider)!.push(model);
+
+      // Still show catalog models initially, but we'll merge/override with dynamic ones below
+      const group = groups.get(model.provider) ?? [];
+      group.push(model);
+      groups.set(model.provider, group);
     }
 
-    // Merge user-configured custom models from openai-compatible accounts
+    // 2. Merge user-configured custom models from openai-compatible accounts
     if (!filterProvider || filterProvider === 'openai-compatible') {
       const customAccounts = providerAccounts.filter(
         a => a.provider === 'openai-compatible' && a.customModels?.length
       );
       for (const account of customAccounts) {
-        for (const cm of account.customModels!) {
-          // Avoid duplicates — skip if already present
+        for (const cm of account.customModels ?? []) {
           const existing = groups.get('openai-compatible');
           if (existing?.some(m => m.value === cm.id)) continue;
-          if (!groups.has('openai-compatible')) groups.set('openai-compatible', []);
-          groups.get('openai-compatible')!.push({
+          const group = groups.get('openai-compatible') ?? [];
+          group.push({
             value: cm.id,
             label: cm.label,
             provider: 'openai-compatible',
             description: account.name,
             capabilities: { thinking: false, tools: true, vision: false, contextWindow: 128000 },
           });
+          groups.set('openai-compatible', group);
         }
       }
     }
 
-    // Inject dynamically fetched Ollama LLM models
+    // 3. Inject dynamically fetched models (Google, OpenAI, etc.)
+    // These are higher signal because they come directly from the authenticated API
+    for (const [provider, fetchedModels] of dynamicModels.entries()) {
+      if (fetchedModels.length > 0 && (!filterProvider || filterProvider === provider)) {
+        const existingInCatalog = groups.get(provider) || [];
+        const merged: ModelOption[] = [];
+
+        // For each fetched model, see if we have an enriched catalog entry
+        for (const fetched of fetchedModels) {
+          const catalogEntry = existingInCatalog.find(m => m.value === fetched.value);
+          if (catalogEntry) {
+            // Use catalog entry but keep dynamic description/capabilities if preferred
+            merged.push({
+              ...catalogEntry,
+              description: fetched.description || catalogEntry.description,
+            });
+          } else {
+            // New model not in our static list
+            merged.push(fetched);
+          }
+        }
+
+        // Also add any catalog models that WEREN'T fetched (e.g. legacy haiku)
+        // to ensure the list is comprehensive even if the API listing missed something
+        for (const catalog of existingInCatalog) {
+          if (!merged.some(m => m.value === catalog.value)) {
+            merged.push(catalog);
+          }
+        }
+
+        groups.set(provider, merged);
+      }
+    }
+
+    // 4. Inject dynamically fetched Ollama models (exclusive list)
     if (ollamaModels.length > 0 && (!filterProvider || filterProvider === 'ollama')) {
-      // Replace any static catalog entries with dynamic ones
       groups.set('ollama', ollamaModels);
     }
 
     return groups;
-  }, [filterProvider, providerAccounts, ollamaModels, openaiIsOAuthOnly]);
+  }, [filterProvider, providerAccounts, ollamaModels, dynamicModels, openaiIsOAuthOnly]);
 
   // Check if provider has credentials
   const hasCredentials = (provider: BuiltinProvider): boolean => {
@@ -200,10 +330,10 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
     setTimeout(() => searchRef.current?.focus(), 50);
   };
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setOpen(false);
     setSearch('');
-  };
+  }, []);
 
   const handleSelect = (modelValue: string) => {
     onChange(modelValue);
@@ -229,7 +359,7 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
+  }, [open, handleClose]);
 
   // Close on Escape
   useEffect(() => {
@@ -238,7 +368,7 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open]);
+  }, [open, handleClose]);
 
   return (
     <div ref={containerRef} className={cn('relative', className)}>
@@ -246,6 +376,7 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
       <button
         type="button"
         onClick={open ? handleClose : handleOpen}
+        disabled={disabled}
         className={cn(
           'flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm',
           'ring-offset-background',
@@ -313,9 +444,14 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
                       'flex items-center justify-between px-3 py-1.5 bg-muted/50 sticky top-0',
                       !configured && 'opacity-60'
                     )}>
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        {providerInfo?.name ?? provider}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          {providerInfo?.name ?? provider}
+                        </span>
+                        {dynamicLoading[provider] && (
+                          <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                        )}
+                      </div>
                       {!configured && providerInfo?.website && (
                         <a
                           href={providerInfo.website}

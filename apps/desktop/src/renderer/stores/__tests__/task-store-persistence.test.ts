@@ -8,20 +8,22 @@
  * Related to Issue #1657: Bug - Logs disappear after restart in dev mode
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { Task, TaskStatus } from '../../../shared/types';
+import type { ImplementationPlan, IPCResult, Task, TaskStatus } from '../../../shared/types';
 
 // Mock the electronAPI for IPC communication
 const mockGetTasks = vi.fn();
 const mockCreateTask = vi.fn();
+const mockStartTask = vi.fn();
+const mockUpdateTaskStatus = vi.fn();
 
 vi.stubGlobal('window', {
   electronAPI: {
     getTasks: mockGetTasks,
     createTask: mockCreateTask,
-    startTask: vi.fn(),
+    startTask: mockStartTask,
     stopTask: vi.fn(),
     submitReview: vi.fn(),
-    updateTaskStatus: vi.fn(),
+    updateTaskStatus: mockUpdateTaskStatus,
     updateTask: vi.fn(),
     checkTaskRunning: vi.fn(),
     recoverStuckTask: vi.fn(),
@@ -34,6 +36,8 @@ describe('task-store-persistence', () => {
   let useTaskStore: typeof import('../task-store').useTaskStore;
   let loadTasks: typeof import('../task-store').loadTasks;
   let createTask: typeof import('../task-store').createTask;
+  let createWorkItemsFromImplementationPlan: typeof import('../task-store').createWorkItemsFromImplementationPlan;
+  let startTaskOrQueue: typeof import('../task-store').startTaskOrQueue;
 
 
   beforeEach(async () => {
@@ -45,6 +49,8 @@ describe('task-store-persistence', () => {
     useTaskStore = storeModule.useTaskStore;
     loadTasks = storeModule.loadTasks;
     createTask = storeModule.createTask;
+    createWorkItemsFromImplementationPlan = storeModule.createWorkItemsFromImplementationPlan;
+    startTaskOrQueue = storeModule.startTaskOrQueue;
   });
 
   afterEach(() => {
@@ -326,8 +332,8 @@ describe('task-store-persistence', () => {
     });
 
     it('should set loading state during IPC call', async () => {
-      let resolveGetTasks: (value: any) => void;
-      const getTasksPromise = new Promise((resolve) => {
+      let resolveGetTasks: ((value: IPCResult<Task[]>) => void) | undefined;
+      const getTasksPromise = new Promise<IPCResult<Task[]>>((resolve) => {
         resolveGetTasks = resolve;
       });
 
@@ -340,7 +346,7 @@ describe('task-store-persistence', () => {
       expect(loadingState.isLoading).toBe(true);
 
       // Resolve the IPC call
-      resolveGetTasks!({
+      resolveGetTasks?.({
         success: true,
         data: []
       });
@@ -622,6 +628,259 @@ describe('task-store-persistence', () => {
       expect(result).toBeNull();
       const state = useTaskStore.getState();
       expect(state.error).toBe('Creation failed');
+    });
+
+    it('should create dependency-linked work items from implementation plan phases', async () => {
+      const plan: ImplementationPlan = {
+        feature: 'Checkout overhaul',
+        workflow_type: 'parallel',
+        phases: [
+          {
+            phase: 1,
+            id: 'A',
+            name: 'Build API',
+            type: 'backend',
+            subtasks: [
+              {
+                id: 'api-1',
+                title: 'Create endpoint',
+                description: 'Add checkout endpoint',
+                status: 'pending',
+              },
+            ],
+          },
+          {
+            phase: 2,
+            id: 'B',
+            name: 'Build UI',
+            type: 'frontend',
+            subtasks: [
+              {
+                id: 'ui-1',
+                title: 'Create form',
+                description: 'Add checkout form',
+                status: 'pending',
+              },
+            ],
+          },
+          {
+            phase: 3,
+            id: 'C',
+            name: 'Wire integration',
+            type: 'integration',
+            depends_on: ['A'],
+            subtasks: [
+              {
+                id: 'integration-1',
+                title: 'Connect flow',
+                description: 'Connect UI to API',
+                status: 'pending',
+              },
+            ],
+          },
+        ],
+        final_acceptance: ['Checkout completes successfully'],
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+        spec_file: 'spec.md',
+      };
+      const createdTasks: Task[] = ['api', 'ui', 'integration'].map((name, index) => ({
+        id: `task-${name}`,
+        specId: `00${index + 1}-${name}`,
+        projectId: 'test-project',
+        title: name,
+        description: name,
+        status: 'backlog' as TaskStatus,
+        logs: [],
+        subtasks: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      for (const createdTask of createdTasks) {
+        mockCreateTask.mockResolvedValueOnce({ success: true, data: createdTask });
+      }
+
+      const result = await createWorkItemsFromImplementationPlan('test-project', plan, {
+        metadata: { sourceType: 'imported' },
+      });
+
+      expect(result).toEqual({ createdTasks, failedPhases: [] });
+      expect(mockCreateTask).toHaveBeenNthCalledWith(
+        1,
+        'test-project',
+        'Checkout overhaul: Build API',
+        expect.stringContaining('Create endpoint'),
+        { sourceType: 'imported', dependencies: [] }
+      );
+      expect(mockCreateTask).toHaveBeenNthCalledWith(
+        2,
+        'test-project',
+        'Checkout overhaul: Build UI',
+        expect.stringContaining('Create form'),
+        { sourceType: 'imported', dependencies: [] }
+      );
+      expect(mockCreateTask).toHaveBeenNthCalledWith(
+        3,
+        'test-project',
+        'Checkout overhaul: Wire integration',
+        expect.stringContaining('Connect flow'),
+        { sourceType: 'imported', dependencies: ['001-api'] }
+      );
+      expect(useTaskStore.getState().tasks).toEqual(createdTasks);
+    });
+
+    it('should skip phases whose internal prerequisites failed to create', async () => {
+      const plan: ImplementationPlan = {
+        feature: 'Failure tolerant import',
+        workflow_type: 'parallel',
+        phases: [
+          { phase: 1, id: 'A', name: 'First', type: 'setup', subtasks: [] },
+          { phase: 2, id: 'B', name: 'Second', type: 'followup', depends_on: ['A'], subtasks: [] },
+        ],
+        final_acceptance: [],
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+        spec_file: 'spec.md',
+      };
+      mockCreateTask.mockResolvedValueOnce({ success: false, error: 'Creation failed' });
+
+      const result = await createWorkItemsFromImplementationPlan('test-project', plan);
+
+      expect(result).toEqual({
+        createdTasks: [],
+        failedPhases: [
+          { phaseId: 'A', title: 'Failure tolerant import: First' },
+          { phaseId: 'B', title: 'Failure tolerant import: Second' },
+        ],
+      });
+      expect(mockCreateTask).toHaveBeenCalledTimes(1);
+    });
+
+    it('should resolve forward phase dependencies before creating dependent work items', async () => {
+      const plan: ImplementationPlan = {
+        feature: 'Forward dependency import',
+        workflow_type: 'parallel',
+        phases: [
+          { phase: 1, id: 'C', name: 'Dependent', type: 'integration', depends_on: ['A'], subtasks: [] },
+          { phase: 2, id: 'A', name: 'Prerequisite', type: 'backend', subtasks: [] },
+        ],
+        final_acceptance: [],
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+        spec_file: 'spec.md',
+      };
+      const prerequisiteTask: Task = {
+        id: 'task-a',
+        specId: '001-prerequisite',
+        projectId: 'test-project',
+        title: 'Prerequisite',
+        description: 'Prerequisite',
+        status: 'backlog' as TaskStatus,
+        logs: [],
+        subtasks: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const dependentTask: Task = {
+        id: 'task-c',
+        specId: '002-dependent',
+        projectId: 'test-project',
+        title: 'Dependent',
+        description: 'Dependent',
+        status: 'backlog' as TaskStatus,
+        logs: [],
+        subtasks: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      mockCreateTask
+        .mockResolvedValueOnce({ success: true, data: prerequisiteTask })
+        .mockResolvedValueOnce({ success: true, data: dependentTask });
+
+      const result = await createWorkItemsFromImplementationPlan('test-project', plan);
+
+      expect(result).toEqual({ createdTasks: [prerequisiteTask, dependentTask], failedPhases: [] });
+      expect(mockCreateTask).toHaveBeenNthCalledWith(
+        1,
+        'test-project',
+        'Forward dependency import: Prerequisite',
+        expect.stringContaining('Phase: Prerequisite'),
+        { dependencies: [] }
+      );
+      expect(mockCreateTask).toHaveBeenNthCalledWith(
+        2,
+        'test-project',
+        'Forward dependency import: Dependent',
+        expect.stringContaining('Phase: Dependent'),
+        { dependencies: ['001-prerequisite'] }
+      );
+    });
+
+    it('should reject duplicate phase identifiers before creating work items', async () => {
+      const plan: ImplementationPlan = {
+        feature: 'Duplicate dependency import',
+        workflow_type: 'parallel',
+        phases: [
+          { phase: 1, id: 'A', name: 'First duplicate', type: 'setup', subtasks: [] },
+          { phase: 2, id: 'A', name: 'Second duplicate', type: 'setup', subtasks: [] },
+          { phase: 3, id: 'C', name: 'Dependent', type: 'integration', depends_on: ['A'], subtasks: [] },
+        ],
+        final_acceptance: [],
+        created_at: '2026-01-01T00:00:00.000Z',
+        updated_at: '2026-01-01T00:00:00.000Z',
+        spec_file: 'spec.md',
+      };
+
+      const result = await createWorkItemsFromImplementationPlan('test-project', plan);
+
+      expect(result).toEqual({
+        createdTasks: [],
+        failedPhases: [
+          { phaseId: 'A', title: 'Duplicate dependency import: First duplicate' },
+          { phaseId: 'A', title: 'Duplicate dependency import: Second duplicate' },
+        ],
+      });
+      expect(mockCreateTask).not.toHaveBeenCalled();
+    });
+
+    it('should queue blocked tasks instead of starting them from the shared start path', async () => {
+      const sourceTask: Task = {
+        id: 'task-a',
+        specId: '001-a',
+        projectId: 'test-project',
+        title: 'A',
+        description: 'A',
+        status: 'in_progress' as TaskStatus,
+        logs: [],
+        subtasks: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const blockedTask: Task = {
+        id: 'task-c',
+        specId: '003-c',
+        projectId: 'test-project',
+        title: 'C',
+        description: 'C',
+        status: 'backlog' as TaskStatus,
+        metadata: { dependencies: ['task-a'] },
+        logs: [],
+        subtasks: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      useTaskStore.getState().setTasks([sourceTask, blockedTask]);
+      mockUpdateTaskStatus.mockResolvedValue({ success: true });
+
+      const result = await startTaskOrQueue('task-c');
+
+      expect(result).toEqual({ action: 'queued', success: true });
+      expect(mockUpdateTaskStatus).toHaveBeenCalledWith('task-c', 'queue', undefined);
+      expect(mockStartTask).not.toHaveBeenCalled();
+      expect(useTaskStore.getState().tasks.find((task) => task.id === 'task-c')?.status).toBe('queue');
     });
   });
 

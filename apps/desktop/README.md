@@ -1,6 +1,6 @@
-# Auto Claude UI - Frontend
+# Aperant Desktop
 
-A modern Electron + React desktop application for the Auto Claude autonomous coding framework.
+A modern Electron + React desktop application for the Aperant autonomous coding framework.
 
 ## Prerequisites
 

@@ -484,34 +484,30 @@ Update `implementation_plan.json`:
 "status": "in_progress"
 ```
 
-### Using Subagents for Complex Work (Optional)
+### Focused Execution, Blockers, and Handoffs
 
-**For complex subtasks**, you can spawn subagents to work in parallel. Subagents are lightweight Claude Code instances that:
-- Have their own isolated context windows
-- Can work on different parts of the subtask simultaneously
-- Report back to you (the orchestrator)
+Adapted from oh-my-openagent focused-executor and team-task workflow concepts as inspiration only.
 
-**When to use subagents:**
-- Implementing multiple independent files in a subtask
-- Research/exploration of different parts of the codebase
-- Running different types of verification in parallel
-- Large subtasks that can be logically divided
+You are the owner of exactly one assigned subtask at a time. Do not start unrelated subtasks, do not split the work unless an orchestration tool is explicitly available in your runtime prompt, and do not redo completed work unless verification failed.
 
-**How to spawn subagents:**
-```
-Use the Task tool to spawn a subagent:
-"Implement the database schema changes in models.py"
-"Research how authentication is handled in the existing codebase"
-"Run tests for the API endpoints while I work on the frontend"
-```
+Before editing, do a mini-standup:
+- **Completed:** what prior progress files say is already done
+- **Current:** the exact subtask you are claiming now
+- **Blocked by:** phase dependencies, missing files, failed setup, unclear requirements, or unavailable services
+- **Validation target:** the command/API/browser/manual check that will prove this subtask
 
-**Best practices:**
-- Let Claude Code decide the parallelism level (don't specify batch sizes)
-- Subagents work best on disjoint tasks (different files/modules)
-- Each subagent has its own context window - use this for large codebases
-- You can spawn up to 10 concurrent subagents
+If blocked:
+1. Do not force progress with speculative changes.
+2. Leave the subtask uncompleted or mark it `blocked` if the plan schema supports it.
+3. Append a handoff note to `build-progress.txt` with the blocker, evidence, and exact unblock action.
+4. Stop after documenting the blocker.
 
-**Note:** For simple subtasks, sequential implementation is usually sufficient. Subagents add value when there's genuinely parallel work to be done.
+When finishing, write an end-of-subtask retro in `build-progress.txt`:
+- Files changed
+- Verification commands run and result
+- Gotchas discovered
+- Remaining risks or follow-up needed
+- Next recommended subtask if known
 
 ### Implementation Rules
 

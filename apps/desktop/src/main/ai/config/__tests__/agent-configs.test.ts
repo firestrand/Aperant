@@ -8,7 +8,7 @@ import {
   mapMcpServerName,
   CONTEXT7_TOOLS,
   LINEAR_TOOLS,
-  MEMORY_MCP_TOOLS, GRAPHITI_MCP_TOOLS,
+  MEMORY_MCP_TOOLS,
   PUPPETEER_TOOLS,
   ELECTRON_TOOLS,
   type AgentType,
@@ -60,8 +60,8 @@ describe('AGENT_CONFIGS', () => {
   });
 
   it('should have valid thinking defaults for all agents', () => {
-    const validLevels = new Set(['low', 'medium', 'high']);
-    for (const [type, config] of Object.entries(AGENT_CONFIGS)) {
+    const validLevels = new Set(['low', 'medium', 'high', 'xhigh']);
+    for (const [, config] of Object.entries(AGENT_CONFIGS)) {
       expect(validLevels.has(config.thinkingDefault)).toBe(true);
     }
   });
@@ -134,6 +134,31 @@ describe('AGENT_CONFIGS', () => {
       expect(AGENT_CONFIGS[type].tools).not.toContain('SpawnSubagent');
     }
   });
+
+  it('should preserve source notes for inspired multi-specialist agents', () => {
+    const inspiredAgents: AgentType[] = [
+      'spec_writer',
+      'spec_critic',
+      'build_orchestrator',
+      'planner',
+      'coder',
+      'qa_reviewer',
+      'qa_fixer',
+      'pr_orchestrator_parallel',
+      'pr_security_specialist',
+      'pr_quality_specialist',
+      'pr_logic_specialist',
+      'pr_codebase_fit_specialist',
+    ];
+
+    for (const type of inspiredAgents) {
+      expect(AGENT_CONFIGS[type].sourceNote?.toLowerCase()).toContain(
+        'inspired by oh-my-openagent',
+      );
+    }
+
+    expect(AGENT_CONFIGS.insights.sourceNote).toBeUndefined();
+  });
 });
 
 describe('MCP tool arrays', () => {
@@ -197,6 +222,7 @@ describe('mapMcpServerName', () => {
     expect(mapMcpServerName('graphiti')).toBe('memory');
     expect(mapMcpServerName('graphiti-memory')).toBe('memory');
     expect(mapMcpServerName('linear')).toBe('linear');
+    expect(mapMcpServerName('serena')).toBe('serena');
     expect(mapMcpServerName('auto-claude')).toBe('auto-claude');
   });
 
@@ -282,6 +308,23 @@ describe('getRequiredMcpServers', () => {
       context7Enabled: false,
     });
     expect(servers).not.toContain('context7');
+  });
+
+  it('should add Serena when globally enabled', () => {
+    const servers = getRequiredMcpServers('coder', {
+      memoryEnabled: true,
+      serenaEnabled: true,
+    });
+    expect(servers).toContain('serena');
+  });
+
+  it('should not add duplicate Serena entries', () => {
+    const servers = getRequiredMcpServers('coder', {
+      memoryEnabled: true,
+      serenaEnabled: true,
+      agentMcpAdd: 'serena',
+    });
+    expect(servers.filter((server) => server === 'serena')).toHaveLength(1);
   });
 
   it('should support per-agent MCP additions', () => {

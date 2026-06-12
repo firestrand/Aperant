@@ -202,6 +202,10 @@ The task is complete when:
 
 **CRITICAL**: These criteria must be verified by the QA Agent before sign-off.
 
+**Executable Criteria Rule**: Write criteria so an agent can verify them without asking the user. Each criterion needs at least one concrete evidence type: command output, API response, screenshot, database/query result, file assertion, or code-path proof. Avoid placeholders like "verify manually" unless the project has a concrete automation tool or screenshot workflow.
+
+**Workflow Inspiration**: This criteria rule is conceptually adapted from oh-my-openagent planning/review workflows as inspiration only.
+
 ### Unit Tests
 | Test | File | What to Verify |
 |------|------|----------------|

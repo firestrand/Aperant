@@ -1,6 +1,6 @@
 import { ipcMain, nativeImage } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir, VALID_THINKING_LEVELS, sanitizeThinkingLevel } from '../../../shared/constants';
-import type { IPCResult, Task, TaskMetadata, TaskOutcome } from '../../../shared/types';
+import type { IPCResult, ProjectAgentOverrides, Task, TaskMetadata, TaskOutcome } from '../../../shared/types';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
@@ -49,6 +49,7 @@ async function generateTitleWithFallback(
   description: string,
   handler: string,
   taskId?: string,
+  projectOverrides?: ProjectAgentOverrides,
 ): Promise<string> {
   const breadcrumbData = taskId ? { handler, taskId } : { handler };
 
@@ -60,7 +61,7 @@ async function generateTitleWithFallback(
   });
 
   try {
-    const generatedTitle = await titleGenerator.generateTitle(description);
+    const generatedTitle = await titleGenerator.generateTitle(description, projectOverrides);
     if (generatedTitle) {
       console.warn(`[${handler}] Generated title:`, generatedTitle);
       safeBreadcrumb({
@@ -168,7 +169,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
       let finalTitle = title;
       if (!title || !title.trim()) {
         console.warn('[TASK_CREATE] Title is empty, generating with Claude AI...');
-        finalTitle = await generateTitleWithFallback(description, 'TASK_CREATE');
+        finalTitle = await generateTitleWithFallback(description, 'TASK_CREATE', undefined, project.settings.projectAgentOverrides);
       }
 
       // Generate a unique spec ID based on existing specs
@@ -474,7 +475,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         if (updates.title !== undefined && !updates.title.trim()) {
           const descriptionToUse = updates.description ?? task.description;
           console.warn('[TASK_UPDATE] Title is empty, generating with Claude AI...');
-          finalTitle = await generateTitleWithFallback(descriptionToUse, 'TASK_UPDATE', taskId);
+          finalTitle = await generateTitleWithFallback(descriptionToUse, 'TASK_UPDATE', taskId, project.settings.projectAgentOverrides);
         }
 
         // Update implementation_plan.json

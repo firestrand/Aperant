@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
+  buildSimpleModeFeatureModels,
+  buildSimpleModePhaseModels,
+  buildSimpleModePhaseThinking,
   getProviderPreset,
   getProviderPresetOrFallback,
   PROVIDER_PRESET_DEFINITIONS,
+  resolveSimpleModeBaseModel,
 } from '../models';
 
 describe('getProviderPreset', () => {
@@ -23,7 +27,7 @@ describe('getProviderPreset', () => {
   it('returns correct preset for openai provider', () => {
     const result = getProviderPreset('openai', 'auto');
     expect(result).not.toBeNull();
-    expect(result?.primaryModel).toBe('gpt-5.3-codex');
+    expect(result?.primaryModel).toBe('gpt-5.5');
   });
 
   it('returns null for unknown presetId', () => {
@@ -53,7 +57,7 @@ describe('getProviderPresetOrFallback', () => {
 
   it('returns openai balanced preset exactly when available', () => {
     const result = getProviderPresetOrFallback('openai', 'balanced');
-    expect(result.primaryModel).toBe('gpt-5.2-codex');
+    expect(result.primaryModel).toBe('gpt-5.5');
     expect(result.primaryThinking).toBe('medium');
   });
 
@@ -117,5 +121,46 @@ describe('getProviderPresetOrFallback', () => {
       expect(result.phaseModels[key]).toBeTruthy();
       expect(result.phaseThinking[key]).toBeTruthy();
     }
+  });
+});
+
+describe('simple mode model helpers', () => {
+  it('uses one selected base model for every pipeline phase', () => {
+    expect(buildSimpleModePhaseModels('gpt-5.5')).toEqual({
+      spec: 'gpt-5.5',
+      planning: 'gpt-5.5',
+      coding: 'gpt-5.5',
+      qa: 'gpt-5.5',
+    });
+  });
+
+  it('uses one selected base model for every feature model', () => {
+    expect(buildSimpleModeFeatureModels('gpt-5.4-mini')).toEqual({
+      insights: 'gpt-5.4-mini',
+      ideation: 'gpt-5.4-mini',
+      roadmap: 'gpt-5.4-mini',
+      githubIssues: 'gpt-5.4-mini',
+      githubPrs: 'gpt-5.4-mini',
+      utility: 'gpt-5.4-mini',
+      naming: 'gpt-5.4-mini',
+    });
+  });
+
+  it('keeps profile-specific thinking levels with a selected base model', () => {
+    expect(buildSimpleModePhaseThinking('openai', 'auto')).toEqual({
+      spec: 'high',
+      planning: 'high',
+      coding: 'low',
+      qa: 'low',
+    });
+  });
+
+  it('resets OpenAI simple mode to latest preset models by profile', () => {
+    expect(resolveSimpleModeBaseModel('openai', 'auto')).toBe('gpt-5.5');
+    expect(resolveSimpleModeBaseModel('openai', 'quick')).toBe('gpt-5.4-mini');
+  });
+
+  it('preserves an explicitly configured simple-mode base model', () => {
+    expect(resolveSimpleModeBaseModel('openai', 'auto', 'o3')).toBe('o3');
   });
 });

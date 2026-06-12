@@ -262,7 +262,7 @@ describe('createAgentClient', () => {
 
     const result = await createAgentClient(baseConfig);
 
-    expect(mockCreateMcpClientsForAgent).toHaveBeenCalledWith('coder', expect.any(Object));
+    expect(mockCreateMcpClientsForAgent).toHaveBeenCalledWith('coder', expect.any(Object), { specDir: baseToolContext.specDir });
     expect(result.mcpClients).toHaveLength(1);
     expect(result.tools).toHaveProperty('ctx7_tool');
   });
@@ -324,6 +324,10 @@ describe('createAgentClient', () => {
     });
 
     // createMcpClientsForAgent is called because the combined server list is non-empty
-    expect(mockCreateMcpClientsForAgent).toHaveBeenCalled();
+    expect(mockCreateMcpClientsForAgent).toHaveBeenCalledWith(
+      'coder',
+      {},
+      { specDir: baseToolContext.specDir },
+    );
   });
 });

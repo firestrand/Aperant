@@ -43,12 +43,26 @@ export interface SettingsAPI {
   setCrossProviderQueueOrder: (order: string[]) => Promise<IPCResult>;
   saveModelOverrides: (overrides: Record<string, unknown>) => Promise<IPCResult>;
   testProviderConnection: (provider: string, config: any) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+  listProviderModels: (
+    provider: string,
+    config: {
+      apiKey?: string;
+      authType?: 'oauth' | 'api-key';
+      oauthTokenFilePath?: string;
+      baseUrl?: string;
+    }
+  ) => Promise<IPCResult<{ models: Array<{ id: string; display_name: string }> }>>;
   checkEnvCredentials: () => Promise<IPCResult<Record<string, boolean>>>;
 
   // Codex OAuth authentication
   codexAuthLogin: () => Promise<{ success: boolean; data?: { accessToken: string; refreshToken: string; expiresAt: number; email?: string }; error?: string }>;
   codexAuthStatus: () => Promise<{ success: boolean; data?: { isAuthenticated: boolean; expiresAt?: number }; error?: string }>;
   codexAuthLogout: () => Promise<{ success: boolean; error?: string }>;
+
+  // Google OAuth authentication
+  googleAuthLogin: () => Promise<{ success: boolean; data?: { accessToken: string; refreshToken: string; expiresAt: number; email?: string }; error?: string }>;
+  googleAuthStatus: () => Promise<{ success: boolean; data?: { isAuthenticated: boolean; expiresAt?: number }; error?: string }>;
+  googleAuthLogout: () => Promise<{ success: boolean; error?: string }>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -109,6 +123,16 @@ export const createSettingsAPI = (): SettingsAPI => ({
     ipcRenderer.invoke(IPC_CHANNELS.MODEL_OVERRIDES_SAVE, overrides),
   testProviderConnection: (provider: string, config: any): Promise<IPCResult<{ success: boolean; error?: string }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_TEST_CONNECTION, provider, config),
+  listProviderModels: (
+    provider: string,
+    config: {
+      apiKey?: string;
+      authType?: 'oauth' | 'api-key';
+      oauthTokenFilePath?: string;
+      baseUrl?: string;
+    }
+  ): Promise<IPCResult<{ models: Array<{ id: string; display_name: string }> }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_LIST_MODELS, provider, config),
   checkEnvCredentials: (): Promise<IPCResult<Record<string, boolean>>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_CHECK_ENV),
 
@@ -119,4 +143,12 @@ export const createSettingsAPI = (): SettingsAPI => ({
     ipcRenderer.invoke('codex-auth-status'),
   codexAuthLogout: () =>
     ipcRenderer.invoke('codex-auth-logout'),
+
+  // Google OAuth authentication
+  googleAuthLogin: () =>
+    ipcRenderer.invoke('google-auth-login'),
+  googleAuthStatus: () =>
+    ipcRenderer.invoke('google-auth-status'),
+  googleAuthLogout: () =>
+    ipcRenderer.invoke('google-auth-logout'),
 });

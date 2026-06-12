@@ -9,6 +9,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { resolveTaskSnapshotAgentSettings } from '../../../shared/utils/agent-settings-resolver';
 import {
   type Phase,
   type ThinkingLevel,
@@ -218,16 +219,8 @@ export async function getPhaseThinking(
 
   const metadata = await loadTaskMetadata(specDir);
 
-  if (metadata) {
-    if (metadata.isAutoProfile && metadata.phaseThinking) {
-      return metadata.phaseThinking[phase] ?? DEFAULT_PHASE_THINKING[phase];
-    }
-    if (metadata.thinkingLevel) {
-      return metadata.thinkingLevel;
-    }
-  }
-
-  return DEFAULT_PHASE_THINKING[phase];
+  const snapshot = resolveTaskSnapshotAgentSettings(metadata, phase);
+  return snapshot?.thinking ?? DEFAULT_PHASE_THINKING[phase];
 }
 
 /**

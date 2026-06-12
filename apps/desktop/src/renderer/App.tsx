@@ -45,7 +45,7 @@ import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
 import { Changelog } from './components/Changelog';
 import { Worktrees } from './components/Worktrees';
-import { AgentTools } from './components/AgentTools';
+import { WorkItems } from './components/WorkItems';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { RateLimitModal } from './components/RateLimitModal';
 import { SDKRateLimitModal } from './components/SDKRateLimitModal';
@@ -128,6 +128,7 @@ export function App() {
   const tasks = useTaskStore((state) => state.tasks);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
+  const providerAccounts = useSettingsStore((state) => state.providerAccounts);
 
   // API Profile state
   const profiles = useSettingsStore((state) => state.profiles);
@@ -178,7 +179,8 @@ export function App() {
 
   // Get tabs and selected project
   const projectTabs = getProjectTabs();
-  const selectedProject = projects.find((p) => p.id === (activeProjectId || selectedProjectId));
+  const currentProjectId = activeProjectId || selectedProjectId;
+  const selectedProject = projects.find((p) => p.id === currentProjectId);
 
   // Initial load
   useEffect(() => {
@@ -260,13 +262,14 @@ export function App() {
   // First-run detection - show onboarding wizard if not completed
   // Only check AFTER settings have been loaded from disk to avoid race condition
   useEffect(() => {
-    // Check if either auth method is configured
-    // API profiles: if profiles exist, auth is configured (user has gone through setup)
+    // Check if any auth method is configured.
+    // Provider accounts are the multi-provider source of truth; legacy API and Claude profiles are kept for compatibility.
+    const hasProviderAccountConfigured = providerAccounts.length > 0;
     const hasAPIProfileConfigured = profiles.length > 0;
     const hasOAuthConfigured = claudeProfiles.some(p =>
       p.oauthToken || (p.isDefault && p.configDir)
     );
-    const hasAnyAuth = hasAPIProfileConfigured || hasOAuthConfigured;
+    const hasAnyAuth = hasProviderAccountConfigured || hasAPIProfileConfigured || hasOAuthConfigured;
 
     // Only show wizard if onboarding not completed AND no auth is configured
     if (settingsHaveLoaded &&
@@ -274,7 +277,7 @@ export function App() {
         !hasAnyAuth) {
       setIsOnboardingWizardOpen(true);
     }
-  }, [settingsHaveLoaded, settings.onboardingCompleted, profiles, claudeProfiles]);
+  }, [settingsHaveLoaded, settings.onboardingCompleted, profiles, claudeProfiles, providerAccounts]);
 
   // Version 2.7.5 warning - show once to notify users about reauthentication requirement
   useEffect(() => {
@@ -824,6 +827,16 @@ export function App() {
     }
   };
 
+  const handleSidebarViewChange = (view: SidebarView) => {
+    if (view === 'agent-tools') {
+      setSettingsInitialSection(undefined);
+      setSettingsInitialProjectSection('general');
+      setIsSettingsDialogOpen(true);
+      return;
+    }
+    setActiveView(view);
+  };
+
   return (
     <ViewStateProvider>
       <TooltipProvider>
@@ -834,7 +847,7 @@ export function App() {
           onSettingsClick={() => setIsSettingsDialogOpen(true)}
           onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
           activeView={activeView}
-          onViewChange={setActiveView}
+          onViewChange={handleSidebarViewChange}
         />
 
         {/* Main content */}
@@ -893,21 +906,24 @@ export function App() {
                     isActive={activeView === 'terminals'}
                   />
                 </div>
-                {activeView === 'roadmap' && (activeProjectId || selectedProjectId) && (
-                  <Roadmap projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                {activeView === 'roadmap' && currentProjectId && (
+                  <Roadmap projectId={currentProjectId} onGoToTask={handleGoToTask} />
                 )}
-                {activeView === 'context' && (activeProjectId || selectedProjectId) && (
+                {activeView === 'context' && currentProjectId && (
                   <ErrorBoundary>
-                    <Context projectId={activeProjectId || selectedProjectId!} />
+                    <Context projectId={currentProjectId} />
                   </ErrorBoundary>
                 )}
-                {activeView === 'ideation' && (activeProjectId || selectedProjectId) && (
-                  <Ideation projectId={activeProjectId || selectedProjectId!} onGoToTask={handleGoToTask} />
+                {activeView === 'ideation' && currentProjectId && (
+                  <Ideation projectId={currentProjectId} onGoToTask={handleGoToTask} />
                 )}
-                {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
-                  <Insights projectId={activeProjectId || selectedProjectId!} />
+                {activeView === 'work-items' && currentProjectId && (
+                  <WorkItems projectId={currentProjectId} />
                 )}
-                {activeView === 'github-issues' && (activeProjectId || selectedProjectId) && (
+                {activeView === 'insights' && currentProjectId && (
+                  <Insights projectId={currentProjectId} />
+                )}
+                {activeView === 'github-issues' && currentProjectId && (
                   <GitHubIssues
                     onOpenSettings={() => {
                       setSettingsInitialProjectSection('github');
@@ -916,7 +932,7 @@ export function App() {
                     onNavigateToTask={handleGoToTask}
                   />
                 )}
-                {activeView === 'gitlab-issues' && (activeProjectId || selectedProjectId) && (
+                {activeView === 'gitlab-issues' && currentProjectId && (
                   <GitLabIssues
                     onOpenSettings={() => {
                       setSettingsInitialProjectSection('gitlab');
@@ -926,7 +942,7 @@ export function App() {
                   />
                 )}
                 {/* GitHubPRs is always mounted but hidden when not active to preserve review state */}
-                {(activeProjectId || selectedProjectId) && (
+                {currentProjectId && (
                   <div className={activeView === 'github-prs' ? 'h-full' : 'hidden'}>
                     <GitHubPRs
                       onOpenSettings={() => {
@@ -937,22 +953,21 @@ export function App() {
                     />
                   </div>
                 )}
-                {activeView === 'gitlab-merge-requests' && (activeProjectId || selectedProjectId) && (
+                {activeView === 'gitlab-merge-requests' && currentProjectId && (
                   <GitLabMergeRequests
-                    projectId={activeProjectId || selectedProjectId!}
+                    projectId={currentProjectId}
                     onOpenSettings={() => {
                       setSettingsInitialProjectSection('gitlab');
                       setIsSettingsDialogOpen(true);
                     }}
                   />
                 )}
-                {activeView === 'changelog' && (activeProjectId || selectedProjectId) && (
+                {activeView === 'changelog' && currentProjectId && (
                   <Changelog />
                 )}
-                {activeView === 'worktrees' && (activeProjectId || selectedProjectId) && (
-                  <Worktrees projectId={activeProjectId || selectedProjectId!} />
+                {activeView === 'worktrees' && currentProjectId && (
+                  <Worktrees projectId={currentProjectId} />
                 )}
-                {activeView === 'agent-tools' && <AgentTools />}
               </>
             ) : (
               <WelcomeScreen
@@ -977,9 +992,9 @@ export function App() {
         />
 
         {/* Dialogs */}
-        {(activeProjectId || selectedProjectId) && (
+        {currentProjectId && (
           <TaskCreationWizard
-            projectId={activeProjectId || selectedProjectId!}
+            projectId={currentProjectId}
             open={isNewTaskDialogOpen}
             onOpenChange={setIsNewTaskDialogOpen}
           />

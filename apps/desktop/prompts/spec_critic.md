@@ -123,6 +123,20 @@ Cross-reference with research.json:
 
 Flag any divergences.
 
+### 1.6: Agile Readiness Review
+
+Conceptually adapted from oh-my-openagent Metis/Momus planning review patterns as inspiration only.
+
+Review only blockers that would make implementation fail or waste a coding session:
+
+- **Intent clarity**: Is the user goal translated into must-have and must-not-have behavior?
+- **Executable acceptance**: Can QA verify every criterion with a command, API response, screenshot, query, file assertion, or code-path proof?
+- **Dependency clarity**: Are prerequisites, blockers, and implementation order explicit?
+- **Scope control**: Does the spec prevent likely overreach or unrelated rewrites?
+- **Handoff quality**: Could a fresh planner/coder start from this spec without rediscovering basic context?
+
+Do not bikeshed wording. Fix only issues that affect implementation accuracy, QA verifiability, or scope safety.
+
 ---
 
 ## PHASE 2: CATALOG ISSUES

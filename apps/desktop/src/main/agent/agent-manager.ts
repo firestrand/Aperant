@@ -13,15 +13,12 @@ import {
   TaskExecutionOptions,
   RoadmapConfig
 } from './types';
-import type { IdeationConfig } from '../../shared/types';
+import type { AppSettings, CustomMcpServer, IdeationConfig, TaskMetadata } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
 import { projectStore } from '../project-store';
 import { resolveAuth, resolveAuthFromQueue } from '../ai/auth/resolver';
-import { resolveModelId } from '../ai/config/phase-config';
 import { detectProviderFromModel } from '../ai/providers/factory';
-import { resolveModelEquivalent } from '../../shared/constants/models';
-import type { BuiltinProvider } from '../../shared/types/provider-account';
 import type { AgentExecutorConfig, SerializableSessionConfig, SerializedSecurityProfile } from '../ai/agent/types';
 import { getSecurityProfile } from '../ai/security/security-profile';
 import { createOrGetWorktree } from '../ai/worktree';
@@ -29,6 +26,11 @@ import { findTaskWorktree } from '../worktree-paths';
 import { readSettingsFile } from '../settings-utils';
 import type { ProviderAccount } from '../../shared/types/provider-account';
 import { tryLoadPrompt } from '../ai/prompts/prompt-loader';
+import {
+  resolveTaskSnapshotAgentSettings,
+  resolveTaskSnapshotPhaseModelId,
+  resolveTaskSnapshotPhaseProvider,
+} from '../../shared/utils/agent-settings-resolver';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -109,6 +111,91 @@ export class AgentManager extends EventEmitter {
         // Otherwise keep context for potential restart
       }, 1000); // Delay to allow restart logic to run first
     });
+  }
+
+  static resolveMemoryMcpEnabled(graphitiEnabled: string | undefined, memoryMcpUrl: string | undefined): boolean {
+    if (graphitiEnabled !== undefined) {
+      return graphitiEnabled.toLowerCase() === 'true';
+    }
+    return Boolean(memoryMcpUrl);
+  }
+
+  static resolveProjectMcpOptions(
+    vars: Record<string, string>,
+    agentType: string,
+    globalMcpServers: CustomMcpServer[] = [],
+    globalMcpDefaults: NonNullable<AppSettings['globalMcpDefaults']> = {},
+  ): NonNullable<SerializableSessionConfig['mcpOptions']> {
+    const agentPrefix = `AGENT_MCP_${agentType}`;
+    const memoryMcpUrl = vars.GRAPHITI_MCP_URL;
+    const linearApiKey = vars.LINEAR_API_KEY;
+    let projectCustomMcpServers: CustomMcpServer[] = [];
+    if (vars.CUSTOM_MCP_SERVERS) {
+      try {
+        projectCustomMcpServers = JSON.parse(vars.CUSTOM_MCP_SERVERS) as CustomMcpServer[];
+      } catch {
+        projectCustomMcpServers = [];
+      }
+    }
+    const customMcpServers = [...globalMcpServers];
+    for (const server of projectCustomMcpServers) {
+      if (!customMcpServers.some((existing) => existing.id === server.id)) {
+        customMcpServers.push(server);
+      }
+    }
+
+    const context7Enabled = vars.CONTEXT7_ENABLED !== undefined
+      ? vars.CONTEXT7_ENABLED.toLowerCase() !== 'false'
+      : globalMcpDefaults.context7Enabled !== false;
+
+    return {
+      context7Enabled,
+      memoryEnabled: AgentManager.resolveMemoryMcpEnabled(vars.GRAPHITI_ENABLED, memoryMcpUrl),
+      memoryMcpUrl,
+      linearEnabled: vars.LINEAR_MCP_ENABLED?.toLowerCase() !== 'false' && !!linearApiKey,
+      linearApiKey,
+      electronMcpEnabled: vars.ELECTRON_MCP_ENABLED?.toLowerCase() === 'true',
+      puppeteerMcpEnabled: vars.PUPPETEER_MCP_ENABLED?.toLowerCase() === 'true',
+      serenaEnabled: globalMcpDefaults.serenaEnabled === true,
+      serenaLaunchWebUi: globalMcpDefaults.serenaLaunchWebUi !== false,
+      agentMcpAdd: vars[`${agentPrefix}_ADD`],
+      agentMcpRemove: vars[`${agentPrefix}_REMOVE`],
+      customMcpServers,
+    };
+  }
+
+  private getGlobalMcpDefaults(): NonNullable<AppSettings['globalMcpDefaults']> {
+    const settings = readSettingsFile() as Partial<AppSettings> | null;
+    return settings?.globalMcpDefaults ?? {};
+  }
+
+  private getGlobalMcpServers(): CustomMcpServer[] {
+    const settings = readSettingsFile() as Partial<AppSettings> | null;
+    return settings?.globalMcpServers ?? [];
+  }
+
+  private getProjectMcpOptions(
+    projectPath: string,
+    projectId: string | undefined,
+    agentType: string,
+  ): NonNullable<SerializableSessionConfig['mcpOptions']> {
+    const project = projectStore.getProjects().find((candidate) => candidate.id === projectId || candidate.path === projectPath);
+    const autoBuildPath = project?.autoBuildPath || '.auto-claude';
+    const envPath = path.join(projectPath, autoBuildPath, '.env');
+    const vars: Record<string, string> = {};
+
+    if (existsSync(envPath)) {
+      const content = readFileSync(envPath, 'utf-8');
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const separator = trimmed.indexOf('=');
+        if (separator === -1) continue;
+        vars[trimmed.slice(0, separator)] = trimmed.slice(separator + 1);
+      }
+    }
+
+    return AgentManager.resolveProjectMcpOptions(vars, agentType, this.getGlobalMcpServers(), this.getGlobalMcpDefaults());
   }
 
   /**
@@ -355,18 +442,12 @@ export class AgentManager extends EventEmitter {
 
     // Determine the preferred provider (from metadata or task_metadata.json)
     const preferredProvider = (
-      specDir ? this.resolveTaskPhaseProvider(specDir, 'spec') : null
+      specDir ? AgentManager.resolveTaskSnapshotProvider(specDir, 'spec') : null
     ) ?? (metadata?.provider as string | undefined) ?? null;
 
-    // Resolve the model ID, translating to the target provider's equivalent if needed
-    let specModelId: string;
-    if (preferredProvider && preferredProvider !== 'anthropic') {
-      const equiv = resolveModelEquivalent(specModelShorthand, preferredProvider as BuiltinProvider)
-        ?? resolveModelEquivalent(resolveModelId(specModelShorthand), preferredProvider as BuiltinProvider);
-      specModelId = equiv?.modelId ?? specModelShorthand;
-    } else {
-      specModelId = resolveModelId(specModelShorthand);
-    }
+    // Resolve the model ID through the shared snapshot resolver so provider-native
+    // canonicalization stays consistent with task execution and renderer metadata.
+    const specModelId = resolveTaskSnapshotPhaseModelId(metadata ?? null, 'spec', specModelShorthand);
 
     // Load system prompt from prompts directory
     const systemPrompt = this.loadPrompt('spec_orchestrator') ?? this.buildDefaultSpecPrompt(taskDescription, specDir);
@@ -395,11 +476,7 @@ export class AgentManager extends EventEmitter {
       baseURL: resolved.auth?.baseURL,
       configDir: resolved.configDir,
       oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
-      mcpOptions: {
-        context7Enabled: true,
-        memoryEnabled: !!process.env.GRAPHITI_MCP_URL,
-        linearEnabled: !!process.env.LINEAR_API_KEY,
-      },
+      mcpOptions: this.getProjectMcpOptions(projectPath, projectId, 'spec_orchestrator'),
       toolContext: {
         cwd: projectPath,
         projectDir: projectPath,
@@ -460,14 +537,20 @@ export class AgentManager extends EventEmitter {
     const specDir = path.join(projectPath, specsBaseDir, specId);
 
     // Load model configuration from task_metadata.json if available
-    const modelId = await this.resolveTaskModelId(specDir, 'planning');
-    const preferredProvider = this.resolveTaskPhaseProvider(specDir, 'planning');
+    const planningModelId = await AgentManager.resolveTaskSnapshotModelId(specDir, 'planning');
+    const planningProvider = AgentManager.resolveTaskSnapshotProvider(specDir, 'planning');
+    const codingModelId = await AgentManager.resolveTaskSnapshotModelId(specDir, 'coding');
+    const codingProvider = AgentManager.resolveTaskSnapshotProvider(specDir, 'coding');
+    const qaModelId = await AgentManager.resolveTaskSnapshotModelId(specDir, 'qa');
+    const qaProvider = AgentManager.resolveTaskSnapshotProvider(specDir, 'qa');
 
     // Load system prompt (planner prompt for build orchestrator entry point)
     const systemPrompt = this.loadPrompt('planner') ?? this.buildDefaultPlannerPrompt(specId, projectPath);
 
     // Resolve auth from provider accounts priority queue (falls back to legacy profile)
-    const resolved = await this.resolveAuthFromProviderQueue(modelId, preferredProvider);
+    const resolved = await this.resolveAuthFromProviderQueue(planningModelId, planningProvider);
+    const codingResolved = await this.resolveAuthFromProviderQueue(codingModelId, codingProvider);
+    const qaResolved = await this.resolveAuthFromProviderQueue(qaModelId, qaProvider);
 
     // Create or get existing git worktree for task isolation
     // This matches the Python backend's WorktreeManager.create_worktree() behavior
@@ -519,11 +602,33 @@ export class AgentManager extends EventEmitter {
       baseURL: resolved.auth?.baseURL,
       configDir: resolved.configDir,
       oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
-      mcpOptions: {
-        context7Enabled: true,
-        memoryEnabled: !!process.env.GRAPHITI_MCP_URL,
-        linearEnabled: !!process.env.LINEAR_API_KEY,
+      phaseAuth: {
+        planning: {
+          provider: resolved.provider,
+          modelId: resolved.modelId,
+          apiKey: resolved.auth?.apiKey,
+          baseURL: resolved.auth?.baseURL,
+          configDir: resolved.configDir,
+          oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
+        },
+        coding: {
+          provider: codingResolved.provider,
+          modelId: codingResolved.modelId,
+          apiKey: codingResolved.auth?.apiKey,
+          baseURL: codingResolved.auth?.baseURL,
+          configDir: codingResolved.configDir,
+          oauthTokenFilePath: codingResolved.auth?.oauthTokenFilePath,
+        },
+        qa: {
+          provider: qaResolved.provider,
+          modelId: qaResolved.modelId,
+          apiKey: qaResolved.auth?.apiKey,
+          baseURL: qaResolved.auth?.baseURL,
+          configDir: qaResolved.configDir,
+          oauthTokenFilePath: qaResolved.auth?.oauthTokenFilePath,
+        },
       },
+      mcpOptions: this.getProjectMcpOptions(projectPath, projectId, 'build_orchestrator'),
       toolContext: {
         cwd: effectiveCwd,
         projectDir: effectiveProjectDir,
@@ -582,8 +687,8 @@ export class AgentManager extends EventEmitter {
     const specDir = path.join(projectPath, specsBaseDir, specId);
 
     // Load model configuration from task_metadata.json if available
-    const modelId = await this.resolveTaskModelId(specDir, 'qa');
-    const preferredProvider = this.resolveTaskPhaseProvider(specDir, 'qa');
+    const modelId = await AgentManager.resolveTaskSnapshotModelId(specDir, 'qa');
+    const preferredProvider = AgentManager.resolveTaskSnapshotProvider(specDir, 'qa');
 
     // Load system prompt for QA reviewer
     const systemPrompt = this.loadPrompt('qa_reviewer') ?? this.buildDefaultQAPrompt(specId, projectPath);
@@ -622,11 +727,7 @@ export class AgentManager extends EventEmitter {
       baseURL: resolved.auth?.baseURL,
       configDir: resolved.configDir,
       oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
-      mcpOptions: {
-        context7Enabled: true,
-        memoryEnabled: !!process.env.GRAPHITI_MCP_URL,
-        linearEnabled: !!process.env.LINEAR_API_KEY,
-      },
+      mcpOptions: this.getProjectMcpOptions(projectPath, projectId, 'qa_reviewer'),
       toolContext: {
         cwd: effectiveCwd,
         projectDir: effectiveProjectDir,
@@ -933,96 +1034,54 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
-   * Resolve the model ID for a task by reading task_metadata.json.
-   * Falls back to the default sonnet model if metadata is not available.
+   * Adapter around the shared task snapshot resolver.
+   * Loads task_metadata.json, then translates the shared snapshot model shorthand to a runnable model ID.
    *
    * @param specDir - The spec directory path
    * @param phase - The execution phase ('planning', 'coding', 'qa', 'spec')
    */
-  private async resolveTaskModelId(specDir: string, phase: 'planning' | 'coding' | 'qa' | 'spec'): Promise<string> {
+  static async resolveTaskSnapshotModelId(specDir: string, phase: 'planning' | 'coding' | 'qa' | 'spec'): Promise<string> {
     try {
       const metadataPath = path.join(specDir, 'task_metadata.json');
       if (existsSync(metadataPath)) {
         const raw = readFileSync(metadataPath, 'utf-8');
-        const metadata = JSON.parse(raw) as {
-          isAutoProfile?: boolean;
-          phaseModels?: Record<string, string>;
-          phaseProviders?: Record<string, string>;
-          provider?: string;
-          model?: string;
-        };
+        const metadata = JSON.parse(raw) as TaskMetadata;
+        const snapshot = resolveTaskSnapshotAgentSettings(metadata, phase);
+        const targetProvider = resolveTaskSnapshotPhaseProvider(metadata, phase);
+        let fallbackModel: string | undefined;
 
-        // Determine the target provider for this phase
-        const targetProvider = (metadata.phaseProviders?.[phase] ?? metadata.provider ?? null) as BuiltinProvider | null;
-
-        let shorthand: string | undefined;
-        if (metadata.phaseModels?.[phase]) {
-          shorthand = metadata.phaseModels[phase];
-        } else if (metadata.model) {
-          shorthand = metadata.model;
-        }
-
-        // If shorthand is empty (e.g., Ollama presets use '' because models are dynamic),
-        // try reading the user's per-provider phase config from settings
-        if (!shorthand && targetProvider) {
+        // If the snapshot model is empty (e.g., Ollama presets use '' because models are dynamic),
+        // read the user's per-provider phase config from settings. Model canonicalization remains
+        // in the shared resolver via resolveTaskSnapshotPhaseModelId.
+        if (!snapshot?.model && targetProvider) {
           const settings = readSettingsFile();
           const providerPhaseModels = (settings?.providerAgentConfig as Record<string, Record<string, unknown>> | undefined)?.[targetProvider]?.customPhaseModels as Record<string, string> | undefined;
-          if (providerPhaseModels?.[phase]) {
-            shorthand = providerPhaseModels[phase];
-          }
+          fallbackModel = providerPhaseModels?.[phase];
         }
 
-        if (shorthand) {
-          // First resolve to a full model ID (handles Anthropic shorthands like 'opus' → 'claude-opus-4-6')
-          const baseModelId = resolveModelId(shorthand);
-
-          // If the target provider is non-Anthropic, translate the model ID to the
-          // target provider's equivalent. This ensures the queue resolution succeeds
-          // when the user has swapped away from Anthropic.
-          if (targetProvider && targetProvider !== 'anthropic') {
-            const equiv = resolveModelEquivalent(shorthand, targetProvider)
-              ?? resolveModelEquivalent(baseModelId, targetProvider);
-            if (equiv) {
-              return equiv.modelId;
-            }
-            // If no equivalence found and the model is already a raw model name
-            // (e.g., user-configured Ollama model), pass it through unchanged
-            return shorthand;
-          }
-
-          return baseModelId;
-        }
-
-        // Still no model but have a target provider — resolve 'sonnet' equivalent
-        if (targetProvider && targetProvider !== 'anthropic') {
-          const equiv = resolveModelEquivalent('sonnet', targetProvider);
-          if (equiv) return equiv.modelId;
-        }
+        return resolveTaskSnapshotPhaseModelId(metadata, phase, fallbackModel);
       }
     } catch {
       // Fall through to default
     }
 
-    // Default: resolve 'sonnet' (Anthropic fallback)
-    return resolveModelId('sonnet');
+    // Default: resolve 'sonnet' through the shared snapshot resolver.
+    return resolveTaskSnapshotPhaseModelId(null, phase);
   }
 
   /**
-   * Resolve the provider override for a phase from task_metadata.json.
+   * Adapter around the shared task snapshot provider resolver.
    * Returns null if no per-phase provider is specified (use default queue).
    */
-  private resolveTaskPhaseProvider(specDir: string, phase: 'planning' | 'coding' | 'qa' | 'spec'): string | null {
+  static resolveTaskSnapshotProvider(specDir: string, phase: 'planning' | 'coding' | 'qa' | 'spec'): string | null {
     try {
       const metadataPath = path.join(specDir, 'task_metadata.json');
       if (existsSync(metadataPath)) {
         const raw = readFileSync(metadataPath, 'utf-8');
-        const metadata = JSON.parse(raw) as {
-          phaseProviders?: Record<string, string>;
-          provider?: string;
-        };
+        const metadata = JSON.parse(raw) as TaskMetadata;
         // Per-phase provider (cross-provider mode) takes precedence,
         // then fall back to the single task-level provider (e.g. 'ollama')
-        return metadata.phaseProviders?.[phase] ?? metadata.provider ?? null;
+        return resolveTaskSnapshotPhaseProvider(metadata, phase);
       }
     } catch {
       // Fall through

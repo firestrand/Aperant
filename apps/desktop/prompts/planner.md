@@ -544,6 +544,19 @@ Two phases can run in parallel if:
 2. They **don't modify the same files**
 3. They are in **different services** (e.g., frontend vs worker)
 
+### Agile Workflow Contract
+
+Adapted from oh-my-openagent planning/orchestration concepts (Prometheus, Atlas, team-task dependencies) as inspiration only.
+
+For each phase and subtask, make work independently claimable and reviewable:
+
+1. **Dependency clarity**: every `depends_on` relationship must explain what concrete artifact unblocks the next phase. Do not create hidden dependencies.
+2. **Blocker visibility**: if a subtask might be blocked by another output, record it in the description or notes using `Blocked by: [phase/subtask/artifact]`.
+3. **Handoff packet**: every subtask description must include enough context for a fresh coder: goal, exact files, pattern references, acceptance criteria, and verification command or artifact.
+4. **WIP limit**: recommend the fewest workers that can make progress without file conflicts. Use `1` unless there are truly independent services/files.
+5. **TDD bias**: when practical, plan guardrail tests or validation fixtures before implementation work, then the code change, then the final verification command.
+6. **Scope guardrails**: include `Must not:` notes when the obvious wrong solution would overreach, rewrite unrelated systems, or weaken existing behavior.
+
 ### Analysis Steps
 
 1. **Find parallel groups**: Phases with identical `depends_on` arrays
@@ -896,6 +909,6 @@ If you skipped investigation, your plan will:
 2. Then, read/create the context files in PHASE 1
 3. Create implementation_plan.json based on your findings
 4. Create init.sh and build-progress.txt
-5. Commit planning files and **STOP**
+5. Leave planning files in the spec directory and **STOP** — do not commit them
 
 The coder agent will handle implementation in a separate session.

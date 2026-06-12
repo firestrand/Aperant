@@ -9,6 +9,7 @@
     "insights": "Insights",
     "roadmap": "Feuille de route",
     "ideation": "Idéation",
+    "workItems": "Éléments de travail",
     "changelog": "Journal des modifications",
     "context": "Contexte",
     "githubIssues": "Issues GitHub",
@@ -16,7 +17,7 @@
     "gitlabIssues": "Issues GitLab",
     "gitlabMRs": "MRs GitLab",
     "worktrees": "Worktrees",
-    "agentTools": "Aperçu MCP"
+    "agentTools": "Paramètres du projet"
   },
   "actions": {
     "settings": "Paramètres",
@@ -28,6 +29,7 @@
   },
   "tooltips": {
     "settings": "Paramètres de l'application",
+    "projectSettings": "Paramètres du projet, serveurs MCP, environnement et remplacements d'agent",
     "help": "Aide & Feedback"
   },
   "messages": {

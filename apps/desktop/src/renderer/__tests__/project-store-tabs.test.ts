@@ -13,7 +13,6 @@ import type { Project, ProjectSettings } from '../../shared/types';
 // Helper to create test projects
 function createTestProject(overrides: Partial<Project> = {}): Project {
   const defaultSettings: ProjectSettings = {
-    model: 'claude-3-opus',
     memoryBackend: 'memory',
     linearSync: false,
     notifications: {

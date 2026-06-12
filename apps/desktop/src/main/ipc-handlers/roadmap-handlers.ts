@@ -29,8 +29,8 @@ import { getActiveProviderFeatureSettings } from "./feature-settings-helper";
 /**
  * Read roadmap feature settings using per-provider resolution
  */
-function getFeatureSettings(): { model?: string; thinkingLevel?: string } {
-  return getActiveProviderFeatureSettings('roadmap');
+function getFeatureSettings(projectOverrides?: import('../../shared/types/project').ProjectAgentOverrides): { model?: string; thinkingLevel?: string } {
+  return getActiveProviderFeatureSettings('roadmap', projectOverrides);
 }
 
 /**
@@ -212,18 +212,10 @@ export function registerRoadmapHandlers(
       enableCompetitorAnalysis?: boolean,
       refreshCompetitorAnalysis?: boolean
     ) => {
-      // Get feature settings for roadmap
-      const featureSettings = getFeatureSettings();
-      const config: RoadmapConfig = {
-        model: featureSettings.model,
-        thinkingLevel: featureSettings.thinkingLevel,
-      };
-
       debugLog("[Roadmap Handler] Generate request:", {
         projectId,
         enableCompetitorAnalysis,
         refreshCompetitorAnalysis,
-        config,
       });
 
       const mainWindow = getMainWindow();
@@ -240,6 +232,13 @@ export function registerRoadmapHandlers(
         );
         return;
       }
+
+      // Get feature settings for roadmap
+      const featureSettings = getFeatureSettings(project.settings.projectAgentOverrides);
+      const config: RoadmapConfig = {
+        model: featureSettings.model,
+        thinkingLevel: featureSettings.thinkingLevel,
+      };
 
       debugLog("[Roadmap Handler] Starting agent manager generation:", {
         projectId,
@@ -274,18 +273,10 @@ export function registerRoadmapHandlers(
       enableCompetitorAnalysis?: boolean,
       refreshCompetitorAnalysis?: boolean
     ) => {
-      // Get feature settings for roadmap
-      const featureSettings = getFeatureSettings();
-      const config: RoadmapConfig = {
-        model: featureSettings.model,
-        thinkingLevel: featureSettings.thinkingLevel,
-      };
-
       debugLog("[Roadmap Handler] Refresh request:", {
         projectId,
         enableCompetitorAnalysis,
         refreshCompetitorAnalysis,
-        config,
       });
 
       const mainWindow = getMainWindow();
@@ -301,6 +292,13 @@ export function registerRoadmapHandlers(
         );
         return;
       }
+
+      // Get feature settings for roadmap
+      const featureSettings = getFeatureSettings(project.settings.projectAgentOverrides);
+      const config: RoadmapConfig = {
+        model: featureSettings.model,
+        thinkingLevel: featureSettings.thinkingLevel,
+      };
 
       // Start roadmap regeneration with refresh flag
       agentManager.startRoadmapGeneration(

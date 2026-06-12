@@ -5,8 +5,8 @@ import { MultiProviderModelSelect } from './MultiProviderModelSelect';
 import { ThinkingLevelSelect } from './ThinkingLevelSelect';
 import { Label } from '../ui/label';
 import {
-  DEFAULT_FEATURE_MODELS,
-  DEFAULT_FEATURE_THINKING,
+  buildProviderDefaultFeatureModels,
+  buildProviderDefaultFeatureThinking,
   FEATURE_LABELS,
 } from '@shared/constants/models';
 import type { BuiltinProvider } from '@shared/types/provider-account';
@@ -14,6 +14,7 @@ import type { FeatureModelConfig, ThinkingLevel } from '@shared/types/settings';
 
 interface FeatureModelSettingsProps {
   provider: BuiltinProvider;
+  refreshTrigger?: number;
 }
 
 /**
@@ -26,17 +27,12 @@ interface FeatureModelSettingsProps {
  * fallback to `settings.featureModels` then `DEFAULT_FEATURE_MODELS`.
  * Writes via `saveProviderAgentConfig`.
  */
-export function FeatureModelSettings({ provider }: FeatureModelSettingsProps) {
+export function FeatureModelSettings({ provider, refreshTrigger }: FeatureModelSettingsProps) {
   const { t } = useTranslation('settings');
   const settings = useSettingsStore((state) => state.settings);
 
-  // For Ollama, default to empty strings — Anthropic model shorthands are meaningless
-  const providerFeatureDefaults: FeatureModelConfig = provider === 'ollama'
-    ? { insights: '', ideation: '', roadmap: '', githubIssues: '', githubPrs: '', utility: '', naming: '' }
-    : DEFAULT_FEATURE_MODELS;
-  const providerThinkingDefaults = provider === 'ollama'
-    ? { insights: 'low' as ThinkingLevel, ideation: 'low' as ThinkingLevel, roadmap: 'low' as ThinkingLevel, githubIssues: 'low' as ThinkingLevel, githubPrs: 'low' as ThinkingLevel, utility: 'low' as ThinkingLevel, naming: 'low' as ThinkingLevel }
-    : DEFAULT_FEATURE_THINKING;
+  const providerFeatureDefaults: FeatureModelConfig = buildProviderDefaultFeatureModels(provider);
+  const providerThinkingDefaults = buildProviderDefaultFeatureThinking(provider);
 
   const featureModels: FeatureModelConfig =
     settings.providerAgentConfig?.[provider]?.featureModels ?? providerFeatureDefaults;
@@ -88,6 +84,7 @@ export function FeatureModelSettings({ provider }: FeatureModelSettingsProps) {
                   value={currentModel}
                   onChange={(value) => handleModelChange(feature, value)}
                   filterProvider={provider}
+                  refreshTrigger={refreshTrigger}
                 />
               </div>
 

@@ -53,7 +53,11 @@ const OAUTH_PROVIDER_REGISTRY: Record<string, OAuthProviderSpec> = {
       return url;
     },
   },
-  // Future OAuth providers: just add entries here
+  google: {
+    tokenEndpoint: 'https://oauth2.googleapis.com/token',
+    clientId: 'YOUR_GOOGLE_CLIENT_ID', // Needs actual client ID
+    // No URL rewrite needed for Google Generative AI API
+  },
 };
 
 // =============================================================================

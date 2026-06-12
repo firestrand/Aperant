@@ -5,7 +5,7 @@ import {
   Settings,
   LayoutGrid,
   Terminal,
-  Map,
+  Map as MapIcon,
   BookOpen,
   Lightbulb,
   AlertCircle,
@@ -22,7 +22,8 @@ import {
   Heart,
   Wrench,
   PanelLeft,
-  PanelLeftClose
+  PanelLeftClose,
+  ClipboardList
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -60,7 +61,7 @@ import { RateLimitIndicator } from './RateLimitIndicator';
 import { UpdateBanner } from './UpdateBanner';
 import type { Project, GitStatus } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'work-items' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -74,6 +75,7 @@ interface NavItem {
   labelKey: string;
   icon: React.ElementType;
   shortcut?: string;
+  tooltipKey?: string;
 }
 
 // Base nav items always shown
@@ -81,11 +83,12 @@ const baseNavItems: NavItem[] = [
   { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K' },
   { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A' },
   { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
-  { id: 'roadmap', labelKey: 'navigation:items.roadmap', icon: Map, shortcut: 'D' },
+  { id: 'roadmap', labelKey: 'navigation:items.roadmap', icon: MapIcon, shortcut: 'D' },
   { id: 'ideation', labelKey: 'navigation:items.ideation', icon: Lightbulb, shortcut: 'I' },
+  { id: 'work-items', labelKey: 'navigation:items.workItems', icon: ClipboardList, shortcut: 'O' },
   { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
   { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' },
-  { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' },
+  { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M', tooltipKey: 'navigation:tooltips.projectSettings' },
   { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' }
 ];
 
@@ -296,6 +299,7 @@ export function Sidebar({
 
     const button = (
       <button
+        type="button"
         key={item.id}
         onClick={() => handleNavClick(item.id)}
         disabled={!selectedProjectId}
@@ -328,7 +332,7 @@ export function Sidebar({
         <Tooltip key={item.id}>
           <TooltipTrigger asChild>{button}</TooltipTrigger>
           <TooltipContent side="right">
-            <span>{t(item.labelKey)}</span>
+            <span>{item.tooltipKey ? t(item.tooltipKey) : t(item.labelKey)}</span>
             {item.shortcut && (
               <kbd className="ml-2 rounded border border-border bg-secondary px-1 font-mono text-[10px]">
                 {item.shortcut}
@@ -454,6 +458,7 @@ export function Sidebar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
+                type="button"
                 onClick={() => window.open('https://github.com/sponsors/AndyMik90', '_blank')}
                 className={cn(
                   'flex w-full items-center text-xs transition-colors',

@@ -15,6 +15,7 @@
  */
 
 import * as path from 'node:path';
+import { existsSync } from 'node:fs';
 import { ensureValidToken, reactiveTokenRefresh } from '../../claude-profile/token-refresh';
 import type { SupportedProvider } from '../providers/types';
 import { detectProviderFromModel } from '../providers/factory';
@@ -38,6 +39,16 @@ import type { ClaudeAutoSwitchSettings } from '../../../shared/types/agent';
 const ZAI_GENERAL_API = 'https://api.z.ai/api/paas/v4';
 /** Z.AI Coding API — for Coding Plan subscription keys */
 const ZAI_CODING_API = 'https://api.z.ai/api/coding/paas/v4';
+
+function getFileBasedOAuthTokenPath(userDataPath: string, provider: string): string {
+  if (provider === 'openai') {
+    const legacyCodexPath = path.join(userDataPath, 'codex-auth.json');
+    if (existsSync(legacyCodexPath)) return legacyCodexPath;
+    return path.join(userDataPath, 'codex-auth', 'token.json');
+  }
+
+  return path.join(userDataPath, 'google-auth', 'token.json');
+}
 
 // ============================================
 // Settings Accessor
@@ -89,17 +100,17 @@ async function resolveFromProviderAccount(ctx: AuthResolverContext): Promise<Res
   const account = accounts.find(a => a.provider === ctx.provider && a.isActive);
   if (!account) return null;
 
-  // File-based OAuth accounts (e.g., OpenAI Codex)
-  if (account.authType === 'oauth' && account.provider === 'openai') {
+  // File-based OAuth accounts (e.g., OpenAI Codex, Google Gemini subscription)
+  if (account.authType === 'oauth' && (account.provider === 'openai' || account.provider === 'google')) {
     // Resolve token file path on main thread (has electron.app access)
     const { app } = await import('electron');
-    const tokenFilePath = path.join(app.getPath('userData'), 'codex-auth.json');
+    const tokenFilePath = getFileBasedOAuthTokenPath(app.getPath('userData'), account.provider);
     const { ensureValidOAuthToken } = await import('../providers/oauth-fetch');
-    const token = await ensureValidOAuthToken(tokenFilePath, 'openai');
+    const token = await ensureValidOAuthToken(tokenFilePath, account.provider);
     if (token) {
       return {
-        apiKey: 'codex-oauth-placeholder', // Dummy key; real token injected via custom fetch
-        source: 'codex-oauth',
+        apiKey: `${account.provider}-oauth-placeholder`, // Dummy key; real token injected via custom fetch
+        source: account.provider === 'openai' ? 'codex-oauth' : 'google-oauth',
         oauthTokenFilePath: tokenFilePath,
       };
     }
@@ -505,22 +516,23 @@ async function resolveCredentialsForAccount(
     };
   }
 
-  // File-based OAuth (e.g., OpenAI Codex subscription)
-  if (account.authType === 'oauth' && account.provider === 'openai') {
+  // File-based OAuth (e.g., OpenAI Codex subscription, Google Gemini subscription)
+  if (account.authType === 'oauth' && (account.provider === 'openai' || account.provider === 'google')) {
     try {
       const { app } = await import('electron');
-      const tokenFilePath = path.join(app.getPath('userData'), 'codex-auth.json');
+      const tokenFilePath = getFileBasedOAuthTokenPath(app.getPath('userData'), account.provider);
       const { ensureValidOAuthToken } = await import('../providers/oauth-fetch');
-      const token = await ensureValidOAuthToken(tokenFilePath, 'openai');
+      const token = await ensureValidOAuthToken(tokenFilePath, account.provider);
       if (token) {
         return {
-          apiKey: 'codex-oauth-placeholder',
-          source: 'codex-oauth',
+          apiKey: `${account.provider}-oauth-placeholder`,
+          source: account.provider === 'openai' ? 'codex-oauth' : 'google-oauth',
           oauthTokenFilePath: tokenFilePath,
         };
       }
-    } catch { /* fall through */ }
-    return null;
+    } catch (err) {
+      console.error(`[resolveAccountAuth] Failed to resolve ${account.provider} OAuth:`, err);
+    }
   }
 
   // Anthropic OAuth — refresh token via existing claude-profile system

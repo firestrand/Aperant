@@ -124,8 +124,10 @@ export function AddAccountDialog({
     return false;
   }, [toast, t]);
 
-  const isOAuthOnly = (provider === 'anthropic' || provider === 'openai') && authType === 'oauth';
+  const isOAuthOnly = (provider === 'anthropic' || provider === 'openai' || provider === 'google') && authType === 'oauth';
   const isCodexOAuth = provider === 'openai' && authType === 'oauth';
+  const isGoogleOAuth = provider === 'google' && authType === 'oauth';
+  const isGenericOAuth = isCodexOAuth || isGoogleOAuth;
 
   const refreshUsageData = useCallback(async () => {
     try {
@@ -138,7 +140,7 @@ export function AddAccountDialog({
   // Subscribe to Anthropic OAuth progress events (not used for Codex/OpenAI)
   useEffect(() => {
     if (!open || oauthStatus === 'idle' || oauthStatus === 'success') return;
-    if (isCodexOAuth) return;
+    if (isGenericOAuth) return;
 
     const unsubscribe = window.electronAPI.onClaudeAuthLoginProgress((data) => {
       switch (data.status) {
@@ -160,7 +162,7 @@ export function AddAccountDialog({
     });
 
     return unsubscribe;
-  }, [open, oauthStatus, isCodexOAuth]);
+  }, [open, oauthStatus, isGenericOAuth]);
 
   const needsApiKey = provider !== 'ollama' && authType === 'api-key';
   const needsBaseUrl = provider === 'ollama' || provider === 'azure' || provider === 'openai-compatible' || provider === 'zai' || (provider === 'anthropic' && authType === 'api-key');
@@ -169,7 +171,7 @@ export function AddAccountDialog({
 
   // Auto-save for Anthropic OAuth on success (mirrors the Codex auto-save behavior)
   useEffect(() => {
-    if (oauthStatus !== 'success' || isCodexOAuth || accountSaved || !name.trim()) return;
+    if (oauthStatus !== 'success' || isGenericOAuth || accountSaved || !name.trim()) return;
 
     const autoSave = async () => {
       let result: {
@@ -213,7 +215,7 @@ export function AddAccountDialog({
       }
     };
     autoSave();
-  }, [oauthStatus, isCodexOAuth, accountSaved, name, provider, oauthProfileId, isEditing, editAccount, oauthEmail, addProviderAccount, updateProviderAccount, handleDuplicateEmailError, toast, t, refreshUsageData]);
+  }, [oauthStatus, isGenericOAuth, accountSaved, name, provider, oauthProfileId, isEditing, editAccount, oauthEmail, addProviderAccount, updateProviderAccount, handleDuplicateEmailError, toast, t, refreshUsageData]);
 
   const canSave = () => {
     if (!name.trim()) return false;
@@ -223,13 +225,17 @@ export function AddAccountDialog({
     return true;
   };
 
-  const oauthAuthLabel = isCodexOAuth
+  const oauthAuthLabel = isGoogleOAuth
     ? isEditing
-      ? t('providers.dialog.codexReauthenticate')
-      : t('providers.dialog.codexAuthenticate')
-    : isEditing
-      ? t('providers.dialog.oauthReauthenticate')
-      : t('providers.dialog.oauthAuthenticate');
+      ? t('providers.dialog.googleReauthenticate', { defaultValue: 'Re-authenticate with Google' })
+      : t('providers.dialog.googleAuthenticate', { defaultValue: 'Authenticate with Google' })
+    : isCodexOAuth
+      ? isEditing
+        ? t('providers.dialog.codexReauthenticate')
+        : t('providers.dialog.codexAuthenticate')
+      : isEditing
+        ? t('providers.dialog.oauthReauthenticate')
+        : t('providers.dialog.oauthAuthenticate');
 
   const handleAuthenticate = useCallback(async () => {
     if (!name.trim()) {
@@ -243,11 +249,14 @@ export function AddAccountDialog({
     setOauthStatus('authenticating');
     setOauthError(null);
 
-    // Handle OpenAI Codex OAuth flow separately
-    if (isCodexOAuth) {
+    // Handle OpenAI Codex or Google Gemini OAuth flow
+    if (isGenericOAuth) {
       try {
         setOauthStatus('waiting');
-        const result = await window.electronAPI.codexAuthLogin();
+        const result = isGoogleOAuth
+          ? await window.electronAPI.googleAuthLogin()
+          : await window.electronAPI.codexAuthLogin();
+
         if (result.success) {
           setOauthStatus('success');
           if (result.data?.email) {
@@ -344,7 +353,7 @@ export function AddAccountDialog({
       setOauthStatus('error');
       setOauthError(err instanceof Error ? err.message : 'Unexpected error');
     }
-  }, [name, t, toast, isCodexOAuth, isEditing, editAccount, provider, addProviderAccount, updateProviderAccount, handleDuplicateEmailError, onOpenChange, refreshUsageData]);
+  }, [name, t, toast, isGenericOAuth, isGoogleOAuth, isEditing, editAccount, provider, addProviderAccount, updateProviderAccount, handleDuplicateEmailError, onOpenChange, refreshUsageData]);
 
   const handleFallbackTerminal = useCallback(async () => {
     if (!name.trim()) {
@@ -412,7 +421,7 @@ export function AddAccountDialog({
         apiKey: needsApiKey ? apiKey.trim() : undefined,
         baseUrl: needsBaseUrl && baseUrl.trim() ? baseUrl.trim() : undefined,
         region: needsRegion ? region : undefined,
-        claudeProfileId: isOAuthOnly && !isCodexOAuth ? oauthProfileId ?? undefined : undefined,
+        claudeProfileId: isOAuthOnly && !isGenericOAuth ? oauthProfileId ?? undefined : undefined,
         email: isOAuthOnly ? (oauthEmail ?? (isEditing ? editAccount?.email : undefined)) : undefined,
         customModels: provider === 'openai-compatible' && customModels.length > 0 ? customModels : undefined,
       };
@@ -475,15 +484,17 @@ export function AddAccountDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            {isCodexOAuth
-              ? t('providers.dialog.codexOAuthDescription')
-              : isOAuthOnly
-                ? t('providers.dialog.oauthDescription')
-                : provider === 'zai' && billingModelOverride === 'subscription'
-                  ? t('providers.dialog.zaiCodingPlanDescription')
-                  : provider === 'zai'
-                    ? t('providers.dialog.zaiUsageBasedDescription')
-                    : t('providers.dialog.apiKeyDescription')}
+            {isGoogleOAuth
+              ? t('providers.dialog.googleOAuthDescription', { defaultValue: 'Authenticate with your personal Google account to use your Gemini Advanced subscription and quotas.' })
+              : isCodexOAuth
+                ? t('providers.dialog.codexOAuthDescription')
+                : isOAuthOnly
+                  ? t('providers.dialog.oauthDescription')
+                  : provider === 'zai' && billingModelOverride === 'subscription'
+                    ? t('providers.dialog.zaiCodingPlanDescription')
+                    : provider === 'zai'
+                      ? t('providers.dialog.zaiUsageBasedDescription')
+                      : t('providers.dialog.apiKeyDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -517,21 +528,39 @@ export function AddAccountDialog({
             {oauthStatus === 'authenticating' && (
               <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border p-3 text-sm">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>{isCodexOAuth ? t('providers.dialog.codexAuthenticating') : t('providers.dialog.oauthAuthenticating')}</span>
+                <span>
+                  {isGoogleOAuth
+                    ? t('providers.dialog.googleAuthenticating', { defaultValue: 'Authenticating with Google...' })
+                    : isCodexOAuth
+                      ? t('providers.dialog.codexAuthenticating')
+                      : t('providers.dialog.oauthAuthenticating')}
+                </span>
               </div>
             )}
 
             {oauthStatus === 'waiting' && (
               <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border p-3 text-sm">
                 <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                <span>{isCodexOAuth ? t('providers.dialog.codexWaiting') : t('providers.dialog.oauthWaiting')}</span>
+                <span>
+                  {isGoogleOAuth
+                    ? t('providers.dialog.googleWaiting', { defaultValue: 'Waiting for browser login...' })
+                    : isCodexOAuth
+                      ? t('providers.dialog.codexWaiting')
+                      : t('providers.dialog.oauthWaiting')}
+                </span>
               </div>
             )}
 
             {oauthStatus === 'success' && (
               <div className="flex items-center gap-2 rounded-lg bg-green-500/10 border border-green-500/30 p-3 text-sm text-green-600 dark:text-green-400">
                 <CheckCircle2 className="h-4 w-4" />
-                <span>{isCodexOAuth ? t('providers.dialog.codexSuccess') : t('providers.dialog.oauthSuccess', { email: oauthEmail ?? 'Unknown' })}</span>
+                <span>
+                  {isGoogleOAuth
+                    ? t('providers.dialog.googleSuccess', { defaultValue: 'Google authentication successful!' })
+                    : isCodexOAuth
+                      ? t('providers.dialog.codexSuccess')
+                      : t('providers.dialog.oauthSuccess', { email: oauthEmail ?? 'Unknown' })}
+                </span>
               </div>
             )}
 
@@ -539,7 +568,13 @@ export function AddAccountDialog({
               <div className="space-y-2">
                 <div className="flex items-center gap-2 rounded-lg bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
                   <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span>{isCodexOAuth ? t('providers.dialog.codexError', { error: oauthError ?? 'Unknown' }) : t('providers.dialog.oauthError', { error: oauthError ?? 'Unknown' })}</span>
+                  <span>
+                    {isGoogleOAuth
+                      ? t('providers.dialog.googleError', { error: oauthError ?? 'Unknown', defaultValue: 'Google error: {{error}}' })
+                      : isCodexOAuth
+                        ? t('providers.dialog.codexError', { error: oauthError ?? 'Unknown' })
+                        : t('providers.dialog.oauthError', { error: oauthError ?? 'Unknown' })}
+                  </span>
                 </div>
                 <Button
                   variant="outline"
@@ -553,7 +588,7 @@ export function AddAccountDialog({
             )}
 
             {/* Fallback Terminal Link (Anthropic OAuth only) */}
-            {!isCodexOAuth && !showFallbackTerminal && oauthStatus !== 'success' && !isAuthInProgress && (
+            {!isGenericOAuth && !showFallbackTerminal && oauthStatus !== 'success' && !isAuthInProgress && (
               <button
                 type="button"
                 onClick={handleFallbackTerminal}
@@ -566,7 +601,7 @@ export function AddAccountDialog({
             )}
 
             {/* Fallback AuthTerminal (Anthropic OAuth only) */}
-            {!isCodexOAuth && showFallbackTerminal && fallbackTerminalId && fallbackConfigDir && (
+            {!isGenericOAuth && showFallbackTerminal && fallbackTerminalId && fallbackConfigDir && (
               <FallbackTerminalWrapper
                 terminalId={fallbackTerminalId}
                 configDir={fallbackConfigDir}

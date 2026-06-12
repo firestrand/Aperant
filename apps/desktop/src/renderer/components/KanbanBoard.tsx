@@ -46,6 +46,15 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
+import { evaluateTaskDependencies, selectReadyTasksForExecution } from '../../shared/utils/task-dependency-scheduler';
+import {
+  getVisualColumn,
+  groupTasksByVisualStatus,
+  pruneSelectedTaskIds,
+  selectAllVisibleTaskIds,
+  selectTaskIdsForColumn,
+  toggleSelectedTaskId,
+} from './kanban-helpers';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
 const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
@@ -53,17 +62,6 @@ function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number]
   return VALID_DROP_COLUMNS.has(id);
 }
 
-/**
- * Get the visual column for a task status.
- * pr_created tasks are displayed in the 'done' column, so we map them accordingly.
- * error tasks are displayed in the 'human_review' column (errors need human attention).
- * This is used to compare visual positions during drag-and-drop operations.
- */
-function getVisualColumn(status: TaskStatus): typeof TASK_STATUS_COLUMNS[number] {
-  if (status === 'pr_created') return 'done';
-  if (status === 'error') return 'human_review';
-  return status;
-}
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -736,104 +734,26 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Get task order from store for custom ordering
   const taskOrder = useTaskStore((state) => state.taskOrder);
 
-  const tasksByStatus = useMemo(() => {
-    // Note: pr_created tasks are shown in the 'done' column since they're essentially complete
-    // Note: error tasks are shown in the 'human_review' column since they need human attention
-    const grouped: Record<typeof TASK_STATUS_COLUMNS[number], Task[]> = {
-      backlog: [],
-      queue: [],
-      in_progress: [],
-      ai_review: [],
-      human_review: [],
-      done: []
-    };
-
-    filteredTasks.forEach((task) => {
-      // Map pr_created tasks to the done column, error tasks to human_review
-      const targetColumn = getVisualColumn(task.status);
-      if (grouped[targetColumn]) {
-        grouped[targetColumn].push(task);
-      }
-    });
-
-    // Sort tasks within each column
-    Object.keys(grouped).forEach((status) => {
-      const statusKey = status as typeof TASK_STATUS_COLUMNS[number];
-      const columnTasks = grouped[statusKey];
-      const columnOrder = taskOrder?.[statusKey];
-
-      if (columnOrder && columnOrder.length > 0) {
-        // Custom order exists: sort by order index
-        // 1. Create a set of current task IDs for fast lookup (filters stale IDs)
-        const currentTaskIds = new Set(columnTasks.map(t => t.id));
-
-        // 2. Create valid order by filtering out stale IDs
-        const validOrder = columnOrder.filter(id => currentTaskIds.has(id));
-        const validOrderSet = new Set(validOrder);
-
-        // 3. Find new tasks not in order (prepend at top)
-        const newTasks = columnTasks.filter(t => !validOrderSet.has(t.id));
-        // Sort new tasks by createdAt (newest first)
-        newTasks.sort((a, b) => {
-          const dateA = new Date(a.createdAt).getTime();
-          const dateB = new Date(b.createdAt).getTime();
-          return dateB - dateA;
-        });
-
-        // 4. Sort ordered tasks by their index in validOrder
-        // Pre-compute index map for O(n) sorting instead of O(n²) with indexOf
-        const indexMap = new Map(validOrder.map((id, idx) => [id, idx]));
-        const orderedTasks = columnTasks
-          .filter(t => validOrderSet.has(t.id))
-          .sort((a, b) => (indexMap.get(a.id) ?? 0) - (indexMap.get(b.id) ?? 0));
-
-        // 5. Prepend new tasks at top, then ordered tasks
-        grouped[statusKey] = [...newTasks, ...orderedTasks];
-      } else {
-        // No custom order: fallback to createdAt sort (newest first)
-        grouped[statusKey].sort((a, b) => {
-          const dateA = new Date(a.createdAt).getTime();
-          const dateB = new Date(b.createdAt).getTime();
-          return dateB - dateA;
-        });
-      }
-    });
-
-    return grouped;
-  }, [filteredTasks, taskOrder]);
+  const tasksByStatus = useMemo(() => groupTasksByVisualStatus(filteredTasks, taskOrder), [filteredTasks, taskOrder]);
 
   // Prune stale IDs when tasks are deleted or filtered out
   useEffect(() => {
-    const allTaskIds = new Set(filteredTasks.map(t => t.id));
-    setSelectedTaskIds(prev => {
-      const filtered = new Set([...prev].filter(id => allTaskIds.has(id)));
-      return filtered.size === prev.size ? prev : filtered;
-    });
+    setSelectedTaskIds((prev) => pruneSelectedTaskIds(prev, filteredTasks));
   }, [filteredTasks]);
 
   // Selection callbacks for bulk actions (all columns)
   const toggleTaskSelection = useCallback((taskId: string) => {
-    setSelectedTaskIds(prev => {
-      const next = new Set(prev);
-      if (next.has(taskId)) {
-        next.delete(taskId);
-      } else {
-        next.add(taskId);
-      }
-      return next;
-    });
+    setSelectedTaskIds((prev) => toggleSelectedTaskId(prev, taskId));
   }, []);
 
   const selectAllTasks = useCallback((columnStatus?: typeof TASK_STATUS_COLUMNS[number]) => {
     if (columnStatus) {
       // Select all in specific column
       const columnTasks = tasksByStatus[columnStatus] || [];
-      const columnIds = new Set(columnTasks.map((t: Task) => t.id));
-      setSelectedTaskIds(prev => new Set<string>([...prev, ...columnIds]));
+      setSelectedTaskIds((prev) => selectTaskIdsForColumn(prev, columnTasks));
     } else {
       // Select all across all columns
-      const allIds = new Set(filteredTasks.map(t => t.id));
-      setSelectedTaskIds(allIds);
+      setSelectedTaskIds(selectAllVisibleTaskIds(filteredTasks));
     }
   }, [tasksByStatus, filteredTasks]);
 
@@ -952,18 +872,25 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     let newStatus = requestedStatus;
 
     // ============================================
-    // QUEUE SYSTEM: Enforce parallel task limit
+    // QUEUE SYSTEM: Enforce dependency readiness and parallel task limit.
     // Called from both the dropdown menu and the drag-and-drop handler.
     // Excludes the task itself from the count to handle re-entry (e.g., redundant
     // status change or race with auto-promotion). processQueue auto-promotion
     // calls persistTaskStatus directly, never this function.
     // ============================================
-    if (newStatus === 'in_progress' && isQueueAtCapacity(taskId)) {
-      console.log('[Queue] In Progress full, redirecting task to Queue');
-      newStatus = 'queue';
+    if (newStatus === 'in_progress') {
+      const currentTasks = useTaskStore.getState().tasks;
+      const currentTask = task || currentTasks.find((candidate) => candidate.id === taskId);
+      const dependenciesReady = currentTask
+        ? evaluateTaskDependencies(currentTask, currentTasks).ready
+        : true;
+
+      if (!dependenciesReady || isQueueAtCapacity(taskId)) {
+        console.log('[Queue] In Progress unavailable, redirecting task to Queue');
+        newStatus = 'queue';
+      }
     }
 
-    const oldStatus = task?.status;
     const result = await persistTaskStatus(taskId, newStatus);
 
     if (!result.success) {
@@ -985,10 +912,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           variant: 'destructive'
         });
       }
+    } else if (newStatus === 'queue') {
+      await processQueue();
     }
-    // Note: queue auto-promotion when a task leaves in_progress is handled by the
-    // useEffect task status change listener (registerTaskStatusChangeListener), so
-    // no explicit processQueue() call is needed here.
+    // Queue auto-promotion when a task leaves in_progress is also handled by the
+    // useEffect task status change listener (registerTaskStatusChangeListener).
   };
 
   /**
@@ -1097,12 +1025,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         const inProgressCount = currentTasks.filter((t) =>
           t.status === 'in_progress' && !t.metadata?.archivedAt
         ).length;
-        const queuedTasks = currentTasks.filter((t) =>
-          t.status === 'queue' && !t.metadata?.archivedAt && !attemptedTaskIds.has(t.id)
-        );
+        const availableCapacity = maxParallelTasks - inProgressCount;
+        const readyTasks = selectReadyTasksForExecution(currentTasks, {
+          capacity: availableCapacity,
+          attemptedTaskIds,
+          orderedTaskIds: useTaskStore.getState().taskOrder?.queue ?? tasksByStatus.queue.map((task) => task.id),
+        });
 
-        // Stop if no capacity, no queued tasks, or too many consecutive failures
-        if (inProgressCount >= maxParallelTasks || queuedTasks.length === 0) {
+        // Stop if no capacity, no dependency-ready queued tasks, or too many consecutive failures
+        if (availableCapacity <= 0 || readyTasks.length === 0) {
           break;
         }
 
@@ -1111,12 +1042,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           break;
         }
 
-        // Get the oldest task in queue (FIFO ordering)
-        const nextTask = queuedTasks.sort((a, b) => {
-          const dateA = new Date(a.createdAt).getTime();
-          const dateB = new Date(b.createdAt).getTime();
-          return dateA - dateB; // Ascending order (oldest first)
-        })[0];
+        const nextTask = readyTasks[0];
 
         console.log(`[Queue] Auto-promoting task ${nextTask.id} from Queue to In Progress (${inProgressCount + 1}/${maxParallelTasks})`);
         const result = await persistTaskStatus(nextTask.id, 'in_progress');
@@ -1139,17 +1065,17 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } finally {
       isProcessingQueueRef.current = false;
     }
-  }, [maxParallelTasks]);
+  }, [maxParallelTasks, tasksByStatus.queue]);
 
-  // Register task status change listener for queue auto-promotion
-  // This ensures processQueue() is called whenever a task leaves in_progress
+  // Register task status change listener for queue auto-promotion.
+  // Any status change can make queued dependencies ready (for example review completion),
+  // so ask the scheduler to re-check instead of tying promotion to one transition.
   useEffect(() => {
     const unregister = useTaskStore.getState().registerTaskStatusChangeListener(
       (taskId, oldStatus, newStatus) => {
-        // When a task leaves in_progress (e.g., goes to human_review), process the queue
-        if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
-          console.log(`[Queue] Task ${taskId} left in_progress, processing queue to fill slot`);
-          processQueue();
+        if (oldStatus !== newStatus) {
+          console.log(`[Queue] Task ${taskId} changed status, processing queue for ready work`);
+          void processQueue();
         }
       }
     );
@@ -1157,6 +1083,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Cleanup: unregister listener when component unmounts
     return unregister;
   }, [processQueue]);
+
+  // Process already-queued ready work after task hydration, reloads, and dependency
+  // status changes. processQueue has its own re-entrancy guard, so duplicate calls
+  // coalesce safely while still preventing ready tasks from stalling after reload.
+  useEffect(() => {
+    if (tasksByStatus.queue.length > 0) {
+      void processQueue();
+    }
+  }, [processQueue, tasksByStatus.queue.length]);
 
   // Get task order actions from store
   const reorderTasksInColumn = useTaskStore((state) => state.reorderTasksInColumn);

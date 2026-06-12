@@ -34,7 +34,7 @@ import {
 import { safeParseJson } from '../../utils/json-repair';
 import type { SessionResult } from '../session/types';
 import { iterateSubtasks } from './subtask-iterator';
-import type { SubtaskIteratorConfig, SubtaskResult } from './subtask-iterator';
+import type { SubtaskIteratorConfig } from './subtask-iterator';
 
 // =============================================================================
 // Constants
@@ -50,7 +50,7 @@ const MAX_PLANNING_VALIDATION_RETRIES = 3;
 const MAX_SUBTASK_RETRIES = 3;
 
 /** Delay before retrying after an error (ms) */
-const ERROR_RETRY_DELAY_MS = 5_000;
+const _ERROR_RETRY_DELAY_MS = 5_000;
 
 // =============================================================================
 // Types
@@ -60,7 +60,7 @@ const ERROR_RETRY_DELAY_MS = 5_000;
 type BuildPhase = 'planning' | 'coding' | 'qa_review' | 'qa_fixing';
 
 /** Maps build phases to their agent types */
-const PHASE_AGENT_MAP: Record<BuildPhase, AgentType> = {
+const _PHASE_AGENT_MAP: Record<BuildPhase, AgentType> = {
   planning: 'planner',
   coding: 'coder',
   qa_review: 'qa_reviewer',
@@ -68,7 +68,7 @@ const PHASE_AGENT_MAP: Record<BuildPhase, AgentType> = {
 } as const;
 
 /** Maps build phases to config phase keys */
-const PHASE_CONFIG_MAP: Record<BuildPhase, Phase> = {
+const _PHASE_CONFIG_MAP: Record<BuildPhase, Phase> = {
   planning: 'planning',
   coding: 'coding',
   qa_review: 'qa',
@@ -431,6 +431,7 @@ export class BuildOrchestrator extends EventEmitter {
       sourceSpecDir: this.config.sourceSpecDir,
       maxRetries: MAX_SUBTASK_RETRIES,
       autoContinueDelayMs: AUTO_CONTINUE_DELAY_MS,
+      maxParallelSubtasks: 3,
       abortSignal: this.config.abortSignal,
       onSubtaskStart: (subtask, attempt) => {
         this.iteration++;
@@ -457,7 +458,7 @@ export class BuildOrchestrator extends EventEmitter {
           cliThinking: this.config.cliThinking,
         });
       },
-      onSubtaskComplete: (subtask, result) => {
+      onSubtaskComplete: (_subtask, result) => {
         this.emitTyped('session-complete', result, 'coding');
       },
       onSubtaskStuck: (subtask, reason) => {

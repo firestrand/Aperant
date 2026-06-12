@@ -1,10 +1,10 @@
 # Release Process
 
-This document describes how releases are created for Auto Claude.
+This document describes how releases are created for Aperant.
 
 ## Overview
 
-Auto Claude uses an automated release pipeline that ensures releases are only published after all builds succeed. This prevents version mismatches between documentation and actual releases.
+Aperant uses an automated release pipeline that ensures releases are only published after all builds succeed. This prevents version mismatches between documentation and actual releases.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ On your development branch (typically `develop` or a feature branch):
 
 ```bash
 # Navigate to project root
-cd /path/to/auto-claude
+cd /path/to/aperant
 
 # Bump version (choose one)
 node scripts/bump-version.js patch   # 2.7.1 -> 2.7.2 (bug fixes)

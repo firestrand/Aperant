@@ -67,6 +67,14 @@ export const DEFAULT_APP_SETTINGS = {
   sentryEnabled: true,
   // Auto-name Claude terminals based on initial message (enabled by default)
   autoNameClaudeTerminals: true,
+  // Global user-defined MCP server definitions. Projects enable them per-agent.
+  globalMcpServers: [],
+  // Built-in MCP defaults applied unless a project explicitly overrides them.
+  globalMcpDefaults: {
+    context7Enabled: true,
+    serenaEnabled: false,
+    serenaLaunchWebUi: true,
+  },
   // GPU acceleration for terminal rendering
   // Default to 'off' until WebGL stability is proven across all GPU drivers.
   // Users can opt-in via Settings > Display > GPU Acceleration.
@@ -78,7 +86,6 @@ export const DEFAULT_APP_SETTINGS = {
 // ============================================
 
 export const DEFAULT_PROJECT_SETTINGS = {
-  model: 'opus',
   memoryBackend: 'file' as const,
   linearSync: false,
   notifications: {

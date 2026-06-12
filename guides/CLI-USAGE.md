@@ -1,6 +1,6 @@
-# Auto Claude
+# Aperant
 
-Auto Claude is a desktop application. All functionality is accessed through the Electron desktop UI.
+Aperant is a desktop application. All functionality is accessed through the Electron desktop UI.
 
 ## Getting Started
 

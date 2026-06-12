@@ -21,9 +21,9 @@ import {
   SelectValue
 } from './ui/select';
 import { ThinkingLevelSelect } from './settings/ThinkingLevelSelect';
+import { MultiProviderModelSelect } from './settings/MultiProviderModelSelect';
 import {
   DEFAULT_AGENT_PROFILES,
-  AVAILABLE_MODELS,
   ALL_AVAILABLE_MODELS,
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
@@ -89,56 +89,12 @@ export function AgentProfileSelector({
   const { provider: activeProvider } = useActiveProvider();
   const [showPhaseDetails, setShowPhaseDetails] = useState(false);
 
-  // Ollama models are user-installed — fetch dynamically from the local server
-  const [ollamaModels, setOllamaModels] = useState<Array<{ value: string; label: string }>>([]);
-
-  const fetchOllamaModels = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const result = await window.electronAPI.listOllamaModels();
-      if (signal?.aborted) return;
-      if (result?.success && Array.isArray(result?.data?.models)) {
-        const llmModels = (result.data.models as Array<{ name: string; is_embedding: boolean }>)
-          .filter(m => !m.is_embedding)
-          .map(m => ({ value: m.name, label: m.name }));
-        setOllamaModels(llmModels);
-      }
-    } catch {
-      // Ollama not available — leave empty
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeProvider !== 'ollama') {
-      setOllamaModels([]);
-      return;
-    }
-    const controller = new AbortController();
-    fetchOllamaModels(controller.signal);
-    return () => { controller.abort(); };
-  }, [activeProvider, fetchOllamaModels]);
-
   const isCustom = profileId === 'custom';
   const _isAuto = profileId === 'auto';
 
   // Use provided phase configs or defaults
   const currentPhaseModels = phaseModels || DEFAULT_PHASE_MODELS;
   const currentPhaseThinking = phaseThinking || DEFAULT_PHASE_THINKING;
-
-  // Build model options filtered to the active provider (falls back to Anthropic models)
-  const phaseModelOptions = useMemo(() => {
-    if (!activeProvider || activeProvider === 'anthropic') {
-      return AVAILABLE_MODELS.map(m => ({ value: m.value, label: m.label }));
-    }
-    // Ollama: use dynamically fetched installed models
-    if (activeProvider === 'ollama' && ollamaModels.length > 0) {
-      return ollamaModels;
-    }
-    const providerModels = ALL_AVAILABLE_MODELS.filter(m => m.provider === activeProvider);
-    if (providerModels.length === 0) {
-      return AVAILABLE_MODELS.map(m => ({ value: m.value, label: m.label }));
-    }
-    return providerModels.map(m => ({ value: m.value, label: m.label }));
-  }, [activeProvider, ollamaModels]);
 
   const handleProfileSelect = (selectedId: string) => {
     if (selectedId === 'custom') {
@@ -199,7 +155,7 @@ export function AgentProfileSelector({
     return {
       icon: Sparkles,
       label: 'Auto (Optimized)',
-      description: 'Uses Opus across all phases with optimized thinking levels'
+      description: 'Applies optimized thinking levels to the selected base model across all phases'
     };
   };
 
@@ -230,7 +186,7 @@ export function AgentProfileSelector({
               const ProfileIcon = iconMap[profile.icon || 'Scale'] || Scale;
               const modelLabel = activeProvider
                 ? getProviderModelLabel(profile.model, activeProvider)
-                : AVAILABLE_MODELS.find(m => m.value === profile.model)?.label;
+                : ALL_AVAILABLE_MODELS.find(m => m.value === profile.model)?.label;
               return (
                 <SelectItem key={profile.id} value={profile.id}>
                   <div className="flex items-center gap-2">
@@ -300,7 +256,7 @@ export function AgentProfileSelector({
                 {(Object.keys(PHASE_LABEL_KEYS) as Array<keyof PhaseModelConfig>).map((phase) => {
                   const modelLabel = activeProvider
                     ? getProviderModelLabel(currentPhaseModels[phase], activeProvider)
-                    : (AVAILABLE_MODELS.find(m => m.value === currentPhaseModels[phase])?.label?.replace('Claude ', '') || currentPhaseModels[phase]);
+                    : (ALL_AVAILABLE_MODELS.find(m => m.value === currentPhaseModels[phase])?.label?.replace('Claude ', '') || currentPhaseModels[phase]);
                   return (
                     <div key={phase} className="flex items-center justify-between rounded bg-background/50 px-2 py-1">
                       <span className="text-muted-foreground">{t(PHASE_LABEL_KEYS[phase].label)}:</span>
@@ -328,22 +284,13 @@ export function AgentProfileSelector({
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">{t('agentProfile.model')}</Label>
-                      <Select
+                      <MultiProviderModelSelect
                         value={currentPhaseModels[phase]}
-                        onValueChange={(value) => handlePhaseModelChange(phase, value as ModelType)}
+                        onChange={(value) => handlePhaseModelChange(phase, value as ModelType)}
+                        filterProvider={activeProvider ?? undefined}
+                        className="h-8 text-xs"
                         disabled={disabled}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {phaseModelOptions.map((m) => (
-                            <SelectItem key={m.value} value={m.value}>
-                              {m.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      />
                     </div>
                     <ThinkingLevelSelect
                       value={currentPhaseThinking[phase]}
@@ -368,22 +315,13 @@ export function AgentProfileSelector({
             <Label htmlFor="custom-model" className="text-xs font-medium text-muted-foreground">
               {t('agentProfile.model')}
             </Label>
-            <Select
+            <MultiProviderModelSelect
               value={model}
-              onValueChange={(value) => onModelChange(value as ModelType)}
+              onChange={(value) => onModelChange(value as ModelType)}
+              filterProvider={activeProvider ?? undefined}
+              className="h-9"
               disabled={disabled}
-            >
-              <SelectTrigger id="custom-model" className="h-9">
-                <SelectValue placeholder={t('agentProfile.selectModel')} />
-              </SelectTrigger>
-              <SelectContent>
-                {phaseModelOptions.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           {/* Thinking Level Selection */}

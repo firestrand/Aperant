@@ -124,7 +124,7 @@ export function AgentProfiles() {
           {/* Description */}
           <div className="rounded-lg bg-muted/50 p-4 mb-6">
             <p className="text-sm text-muted-foreground">
-              Agent profiles provide preset configurations for Claude model and thinking level.
+              Agent profiles provide preset thinking-level configurations for the selected base model.
               When you create a new task, these settings will be used as defaults. You can always
               override them in the task creation wizard.
             </p>

@@ -25,6 +25,8 @@ export interface ProviderAccount {
   authType: 'oauth' | 'api-key';
   billingModel: BillingModel;
   apiKey?: string;
+  /** Pre-resolved path to OAuth token file for file-based OAuth providers (e.g., Codex, Google) */
+  oauthTokenFilePath?: string;
   /** Authenticated email (populated from OAuth keychain or provider API) */
   email?: string;
   baseUrl?: string;

@@ -33,6 +33,10 @@
       "title": "Comptes",
       "description": "Comptes Claude & endpoints API"
     },
+    "mcp": {
+      "title": "Défauts MCP",
+      "description": "Définitions globales des serveurs"
+    },
     "updates": {
       "title": "Mises à jour",
       "description": "Mises à jour Aperant"
@@ -208,8 +212,10 @@
     "otherAgentSettings": "Autres paramètres de l'agent",
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",
     "agentFramework": "Framework de l'agent",
-    "agentFrameworkDescription": "Le framework de codage utilisé pour les tâches autonomes",
+    "agentFrameworkDescription": "Aperant est le moteur d'orchestration intégré pour les tâches autonomes.",
     "agentFrameworkAutoClaude": "Aperant",
+    "agentFrameworkDisabledTooltip": "Le changement de framework n'est pas encore disponible. Les frameworks externes nécessitent des adaptateurs dédiés pour la planification, les outils, la QA, l'état et l'isolation des worktrees.",
+    "agentFrameworkDisabledHelp": "Utilisez les profils de modèles, les paramètres avancés par phase/fonctionnalité, les paramètres MCP par défaut et la priorité des fournisseurs pour contrôler le comportement des agents aujourd'hui.",
     "aiTerminalNaming": "Nommage IA des terminaux",
     "aiTerminalNamingDescription": "Nommer automatiquement les terminaux en fonction des commandes (utilise le modèle de nommage IA)",
     "featureModelSettings": "Paramètres du modèle de fonctionnalité",
@@ -244,6 +250,7 @@
     "sourceBundled": "Intégré",
     "sourceFallback": "Valeur par défaut",
     "notDetected": "Non détecté",
+    "detecting": "Détection...",
     "autoClaudePath": "Chemin Aperant",
     "autoClaudePathDescription": "Chemin relatif vers le répertoire auto-claude dans les projets",
     "autoClaudePathPlaceholder": "auto-claude (par défaut)",
@@ -351,11 +358,91 @@
     "rerunWizardDescription": "Redémarrer l'assistant de configuration"
   },
   "projectSections": {
+    "agentSettings": {
+      "title": "Paramètres d'agent effectifs",
+      "description": "Remplacements de modèle et de réflexion propres au projet",
+      "integrationTitle": "Paramètres d'agent effectifs",
+      "integrationDescription": "Modifier les modèles d'agent, les niveaux de réflexion et la provenance pour ce projet",
+      "phaseModelSource": "Source des modèles par phase",
+      "phaseThinkingSource": "Source de réflexion par phase",
+      "featureModelSource": "Source des modèles de fonctionnalités",
+      "featureThinkingSource": "Source de réflexion des fonctionnalités",
+      "phaseOverrides": "Remplacements par phase",
+      "featureOverrides": "Remplacements par fonctionnalité",
+      "providerJson": "JSON des remplacements par fournisseur",
+      "providerJsonDescription": "Option avancée pour providerAgentConfig, incluant les correspondances de phases, fonctionnalités et catégories par fournisseur.",
+      "mixedProfileActive": "Utiliser une configuration mixte par phase/fonctionnalité",
+      "mixedProfileDescription": "Quand cette option est activée, ce projet utilise les assignations mixtes ci-dessous avant les valeurs globales.",
+      "mixedPhaseJson": "JSON de configuration mixte par phase",
+      "mixedFeatureJson": "JSON de configuration mixte par fonctionnalité",
+      "projectProvider": "Fournisseur par défaut du projet",
+      "inheritProvider": "Utiliser la priorité fournisseur de l'application",
+      "invalidProviderJson": "JSON de remplacement fournisseur invalide",
+      "invalidMixedJson": "JSON de configuration mixte invalide",
+      "sourceLabels": {
+        "taskSnapshot": "Instantané de tâche",
+        "crossProviderOverride": "Remplacement multi-fournisseur",
+        "projectOverride": "Remplacement du projet",
+        "perProviderOverride": "Remplacement par fournisseur",
+        "globalAdvancedOverride": "Remplacement avancé global",
+        "providerDefault": "Valeur par défaut du fournisseur",
+        "globalPreset": "Préréglage global",
+        "builtInDefault": "Valeur intégrée par défaut"
+      },
+      "features": {
+        "insights": "Insights",
+        "ideation": "Idéation",
+        "roadmap": "Roadmap",
+        "githubIssues": "Issues GitHub",
+        "githubPrs": "PR GitHub",
+        "utility": "Utilitaire",
+        "naming": "Nommage"
+      },
+      "thinkingLevels": {
+        "low": "Faible",
+        "medium": "Moyen",
+        "high": "Élevé",
+        "xhigh": "Très élevé"
+      }
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "description": "État de configuration du projet",
+      "integrationTitle": "Diagnostics",
+      "integrationDescription": "Inspecter les chemins du projet et la configuration d'environnement",
+      "projectPath": "Chemin du projet",
+      "autoBuildPath": "Chemin Aperant",
+      "envLoaded": "Environnement chargé",
+      "notInitialized": "Non initialisé",
+      "yes": "Oui",
+      "no": "Non"
+    },
     "general": {
       "title": "Général",
       "description": "Auto-Build et configuration de l'agent",
+      "integrationDescriptionWithProject": "Configurer Auto-Build, le modèle d'agent et les notifications pour {{projectName}}",
+      "autoBuildIntegration": "Intégration Auto-Build",
+      "notInitialized": "Non initialisé",
+      "notInitializedDescription": "Initialisez Auto-Build pour activer la création de tâches et les workflows d'agents.",
+      "initializing": "Initialisation...",
+      "initializeAutoBuild": "Initialiser Auto-Build",
+      "initialized": "Initialisé",
+      "checkingStatus": "Vérification de l'état...",
+      "agentConfiguration": "Configuration de l'agent",
+      "notifications": "Notifications",
+      "onTaskComplete": "À la fin d'une tâche",
+      "onTaskFailed": "En cas d'échec d'une tâche",
+      "onReviewNeeded": "Quand une révision est nécessaire",
+      "sound": "Son",
+      "initializeFirst": "Initialisez Auto-Build avant de configurer {{title}}",
       "useClaudeMd": "Utiliser CLAUDE.md",
-      "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent"
+      "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent",
+      "agentOverrides": "Paramètres de modèle des agents",
+      "agentOverridesInherited": "Hérité des valeurs globales. Utilisez Paramètres → Paramètres des agents pour modifier les valeurs partagées par tous les projets.",
+      "agentOverridesProject": "Remplacement pour ce projet. Les nouvelles tâches et les fonctionnalités IA du projet utilisent d'abord ces paramètres d'agent.",
+      "overrideForProject": "Remplacer pour ce projet",
+      "removeAgentOverride": "Supprimer le remplacement",
+      "projectAgentProfile": "Profil d'agent du projet"
     },
     "claude": {
       "title": "Auth Claude",
@@ -366,7 +453,28 @@
       "description": "Intégration Linear",
       "integrationTitle": "Intégration Linear",
       "integrationDescription": "Se connecter à Linear pour le suivi des issues et l'import de tâches",
-      "syncDescription": "Synchroniser avec Linear pour le suivi des issues"
+      "syncDescription": "Synchroniser avec Linear pour le suivi des issues",
+      "enableSync": "Activer la synchronisation Linear",
+      "enableSyncDescription": "Créer et mettre à jour automatiquement les issues Linear",
+      "apiKey": "Clé API",
+      "getApiKeyFrom": "Obtenez votre clé API depuis",
+      "linearSettings": "Paramètres Linear",
+      "connectionStatus": "État de la connexion",
+      "checking": "Vérification...",
+      "connected": "Connecté",
+      "connectedToTeam": "Connecté à {{teamName}}",
+      "notConnected": "Non connecté",
+      "tasksAvailable": "{{count}}+ tâches disponibles à importer",
+      "importExistingTasks": "Importer les tâches existantes",
+      "importExistingTasksDescription": "Sélectionnez les issues Linear à importer dans AutoBuild comme tâches.",
+      "importTasksFromLinear": "Importer des tâches depuis Linear",
+      "realtimeSync": "Synchronisation en temps réel",
+      "realtimeSyncDescription": "Importer automatiquement les nouvelles tâches créées dans Linear",
+      "realtimeSyncWarning": "Quand cette option est activée, les nouvelles issues Linear seront automatiquement importées dans AutoBuild. Configurez les filtres d'équipe/projet ci-dessous pour contrôler les issues importées.",
+      "teamIdOptional": "ID d'équipe (optionnel)",
+      "projectIdOptional": "ID de projet (optionnel)",
+      "autoDetected": "Détecté automatiquement",
+      "autoCreated": "Créé automatiquement"
     },
     "github": {
       "title": "GitHub",
@@ -374,6 +482,44 @@
       "integrationTitle": "Intégration GitHub",
       "integrationDescription": "Se connecter à GitHub pour le suivi des issues",
       "syncDescription": "Synchroniser avec GitHub Issues",
+      "enableIssues": "Activer les issues GitHub",
+      "enableIssuesDescription": "Synchroniser les issues depuis GitHub et créer automatiquement des tâches",
+      "connectedViaCli": "Connecté via GitHub CLI",
+      "authenticatedAs": "Authentifié en tant que {{username}}",
+      "authenticatedViaOAuth": "Authentifié via GitHub OAuth (gh CLI)",
+      "projectSpecificConfiguration": "Configuration propre au projet",
+      "projectSpecificConfigurationPrefix": "Ce dépôt GitHub est configuré uniquement pour",
+      "projectSpecificConfigurationSuffix": "Chaque projet peut avoir son propre dépôt GitHub.",
+      "useDifferentToken": "Utiliser un autre token",
+      "authentication": "Authentification GitHub",
+      "useManualToken": "Utiliser un token manuel",
+      "personalAccessToken": "Token d'accès personnel",
+      "tokenPlaceholder": "ghp_xxxxxxxx ou github_pat_xxxxxxxx",
+      "useOAuthInstead": "Utiliser OAuth à la place",
+      "createTokenWithRepoScope": "Créez un token avec le scope",
+      "scopeFrom": "depuis",
+      "githubSettings": "Paramètres GitHub",
+      "failedToLoadBranches": "Échec du chargement des branches",
+      "failedToLoadRepositories": "Échec du chargement des dépôts",
+      "repository": "Dépôt",
+      "repositoryPlaceholder": "propriétaire/dépôt",
+      "enterManually": "Saisir manuellement",
+      "loadingRepositories": "Chargement des dépôts...",
+      "selectRepository": "Sélectionner un dépôt...",
+      "searchRepositories": "Rechercher des dépôts...",
+      "noMatchingRepositories": "Aucun dépôt correspondant",
+      "noRepositoriesFound": "Aucun dépôt trouvé",
+      "selectedRepository": "Sélectionné :",
+      "repositoryFormat": "Format :",
+      "repositoryExample": "(ex. : facebook/react)",
+      "connectionStatus": "État de la connexion",
+      "checking": "Vérification...",
+      "connectedToRepo": "Connecté à {{repo}}",
+      "notConnected": "Non connecté",
+      "issuesAvailable": "Issues disponibles",
+      "issuesAvailableDescription": "Accédez aux issues GitHub depuis la barre latérale pour les consulter, les analyser et créer des tâches à partir des issues.",
+      "autoSyncOnLoad": "Synchronisation automatique au chargement",
+      "autoSyncOnLoadDescription": "Récupérer automatiquement les issues au chargement du projet",
       "defaultBranch": {
         "label": "Branche par défaut",
         "description": "Branche de base pour créer les worktrees de tâches",
@@ -382,6 +528,11 @@
         "noBranchesFound": "Aucune branche trouvée",
         "selectedBranchHelp": "Toutes les nouvelles tâches partiront de {{branch}}"
       },
+      "mainBranchDescription": "Branche de base pour créer les worktrees de tâches. Toutes les nouvelles tâches partiront de cette branche.",
+      "loadingBranches": "Chargement des branches...",
+      "selectMainBranch": "Sélectionner la branche principale",
+      "tasksCreatedOnBranchesLike": "Les tâches seront créées sur des branches comme",
+      "fromBranch": "depuis",
       "pushNewBranches": {
         "label": "Pousser automatiquement les nouvelles branches",
         "description": "Pousser automatiquement les nouvelles branches de tâche et de worktree vers GitHub et configurer le suivi"
@@ -399,14 +550,61 @@
       "description": "Backend mémoire Graphiti",
       "integrationTitle": "Mémoire",
       "integrationDescription": "Configurer la mémoire persistante inter-sessions pour les agents",
-      "syncDescription": "Configurer la mémoire persistante"
+      "syncDescription": "Configurer la mémoire persistante",
+      "enabled": "Activée",
+      "disabled": "Désactivée",
+      "enableMemory": "Activer la mémoire",
+      "enableMemoryDescription": "Mémoire persistante inter-sessions avec LadybugDB (base intégrée)",
+      "fileBasedMemoryDescription": "Mémoire basée sur fichiers utilisée. Les insights de session sont stockés localement dans des fichiers JSON. Activez la mémoire pour un contexte persistant inter-sessions avec recherche sémantique.",
+      "embeddingProvider": "Fournisseur d'embeddings",
+      "embeddingProviderDescription": "Fournisseur pour la recherche sémantique (optionnel — la recherche par mots-clés fonctionne sans)",
+      "selectEmbeddingProvider": "Sélectionner un fournisseur d'embeddings",
+      "providers": {
+        "ollama": "Ollama (local - gratuit)",
+        "openai": "OpenAI",
+        "voyage": "Voyage AI",
+        "google": "Google AI",
+        "azureOpenAI": "Azure OpenAI"
+      },
+      "openaiApiKey": "Clé API OpenAI",
+      "overrideSuffix": "(remplacement)",
+      "usingGlobalKey": "Clé globale utilisée",
+      "usingGlobalKeyDescription": "Utilisation de la clé des paramètres de l'app. Saisissez une clé propre au projet ci-dessous pour la remplacer.",
+      "requiredForOpenAIEmbeddings": "Requise pour les embeddings OpenAI",
+      "overrideGlobalKeyPlaceholder": "Saisir pour remplacer la clé globale...",
+      "hideProviderApiKey": "Masquer la clé API {{provider}}",
+      "showProviderApiKey": "Afficher la clé API {{provider}}",
+      "getKeyFrom": "Obtenez votre clé depuis",
+      "voyageApiKey": "Clé API Voyage AI",
+      "requiredForVoyageEmbeddings": "Requise pour les embeddings Voyage AI",
+      "embeddingModelOptional": "Modèle d'embeddings (optionnel)",
+      "googleApiKey": "Clé API Google AI",
+      "requiredForGoogleEmbeddings": "Requise pour les embeddings Google AI",
+      "azureOpenAIConfiguration": "Configuration Azure OpenAI",
+      "apiKey": "Clé API",
+      "azureApiKeyPlaceholder": "Clé API Azure",
+      "baseUrl": "URL de base",
+      "embeddingDeploymentName": "Nom du déploiement d'embeddings",
+      "selectEmbeddingModel": "Sélectionner un modèle d'embeddings",
+      "databaseName": "Nom de la base de données",
+      "databaseNameDescription": "Stocké dans ~/.auto-claude/memories/",
+      "databaseNameDetailedDescription": "Nom de la base de mémoire (stockée dans ~/.auto-claude/memories/)",
+      "databasePathOptional": "Chemin de la base de données (optionnel)",
+      "databasePathDescription": "Emplacement de stockage personnalisé. Par défaut : ~/.auto-claude/memories/"
+    },
+    "mcp": {
+      "title": "Serveurs MCP",
+      "description": "Outils d'agent propres au projet",
+      "integrationTitle": "Serveurs MCP",
+      "integrationDescription": "Configurer l'activation des serveurs MCP et l'accès des agents pour ce projet",
+      "syncDescription": "Configurer les serveurs MCP du projet"
     }
   },
   "agentProfile": {
     "label": "Profil d'agent",
     "title": "Profil d'agent par défaut",
     "sectionDescription": "Sélectionnez une configuration prédéfinie pour le modèle et le niveau de réflexion",
-    "profilesInfo": "Les profils d'agent fournissent des configurations prédéfinies pour le modèle Claude et le niveau de réflexion. Quand vous créez une nouvelle tâche, ces paramètres seront utilisés par défaut. Vous pouvez toujours les modifier dans l'assistant de création de tâche.",
+    "profilesInfo": "Les profils d'agent fournissent des configurations prédéfinies de niveaux de réflexion pour le modèle de base sélectionné. Quand vous créez une nouvelle tâche, ces paramètres seront utilisés par défaut. Vous pouvez toujours les modifier dans l'assistant de création de tâche.",
     "custom": "Personnalisé",
     "customConfiguration": "Configuration personnalisée",
     "customDescription": "Choisir le modèle et le niveau de réflexion",
@@ -424,6 +622,32 @@
     "customized": "Personnalisé",
     "ollamaNotConfigured": "Sélectionnez les modèles ci-dessous",
     "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "profiles": {
+      "auto": {
+        "name": "Auto (optimisé)"
+      },
+      "complex": {
+        "name": "Tâches complexes"
+      },
+      "balanced": {
+        "name": "Équilibré"
+      },
+      "quick": {
+        "name": "Modifications rapides"
+      }
+    },
+    "simpleBaseModel": {
+      "label": "Modèle de base",
+      "description": "Le mode simple applique les niveaux de réflexion du profil sélectionné à ce modèle pour toutes les phases et fonctionnalités.",
+      "resetToLatest": "Utiliser la valeur par défaut récente"
+    },
+    "mode": {
+      "label": "Mode des paramètres",
+      "simple": "Simple",
+      "simpleDescription": "Profils prédéfinis uniquement",
+      "advanced": "Avancé",
+      "advancedDescription": "Contrôles par rôle et fonctionnalité"
+    },
     "adaptiveThinking": {
       "badge": "Adaptatif",
       "tooltip": "Opus utilise la réflexion adaptative — il décide dynamiquement de la profondeur de réflexion dans la limite du budget défini par le niveau de réflexion."
@@ -479,6 +703,11 @@
       "moreProviders": "Plus",
       "noProviders": "Aucun fournisseur connecté. Ajoutez des comptes dans les paramètres Comptes pour configurer les paramètres d'agent par fournisseur.",
       "configureFor": "Configurer les paramètres d'agent pour {{provider}}",
+      "defaultBadge": "Par défaut",
+      "defaultProviderDescription": "Ce fournisseur est en premier dans la file de priorité des comptes ; les nouveaux agents utilisent donc ces valeurs par défaut.",
+      "notDefaultProviderDescription": "Ces paramètres sont enregistrés, mais les nouveaux agents utilisent le fournisseur par défaut actuel jusqu'à ce que vous définissiez celui-ci par défaut.",
+      "makeDefault": "Définir comme fournisseur par défaut",
+      "currentDefault": "Par défaut actuel",
       "crossProvider": "Multi-fournisseur",
       "crossProviderDisabledTooltip": "Connectez deux comptes fournisseurs ou plus pour activer les capacités multi-fournisseur",
       "needsSetup": "Configuration requise"
@@ -508,6 +737,30 @@
       "refresh": "Actualiser",
       "loading": "Chargement des modèles...",
       "ollamaNotAvailable": "Connectez Ollama dans les paramètres de compte pour gérer les modèles"
+    },
+    "ollamaCategories": {
+      "title": "Modèles par rôle Ollama",
+      "description": "Attribuez des modèles locaux installés aux rôles d'agent utilisés par Aperant à l'exécution.",
+      "reasoningHeavy": {
+        "label": "Raisonnement intensif",
+        "description": "Création de spec, planification, idéation et roadmap"
+      },
+      "coding": {
+        "label": "Codage",
+        "description": "Agents d'implémentation et d'édition de code"
+      },
+      "review": {
+        "label": "Révision",
+        "description": "Révision QA, triage des issues GitHub et revue de PR"
+      },
+      "fastUtility": {
+        "label": "Utilitaire rapide",
+        "description": "Messages de commit, utilitaires de fusion et nommage"
+      },
+      "chat": {
+        "label": "Chat",
+        "description": "Chat Insights et questions interactives sur le code"
+      }
     }
   },
   "workspace": {
@@ -875,13 +1128,18 @@
     }
   },
   "mcp": {
-    "title": "Aperçu des serveurs MCP",
-    "titleWithProject": "Aperçu des serveurs MCP pour {{projectName}}",
-    "description": "Configurez quels serveurs MCP sont disponibles pour les agents dans ce projet",
-    "descriptionNoProject": "Sélectionnez un projet pour configurer les serveurs MCP",
+    "title": "Serveurs MCP",
+    "titleWithProject": "Serveurs MCP pour {{projectName}}",
+    "description": "Gérez les définitions globales des serveurs MCP et choisissez quels serveurs sont disponibles pour les agents dans ce projet",
+    "descriptionNoProject": "Sélectionnez un projet pour configurer l'activation MCP du projet",
+    "editGlobalDefaults": "Modifier les valeurs globales",
+    "globalDefaultsTitle": "Définitions globales des serveurs MCP",
+    "globalDefaultsDescription": "Créez et modifiez des serveurs MCP personnalisés réutilisables. Les projets choisissent les définitions à activer depuis leur page MCP dans les paramètres du projet.",
     "serversEnabled": "{{count}} serveurs activés",
     "configuration": "Configuration des serveurs MCP",
     "configurationHint": "Les serveurs désactivés réduisent l'utilisation du contexte et le temps de démarrage",
+    "modelSummaryTitle": "Les modèles d'agent résolus sont en lecture seule ici",
+    "modelSummaryDescription": "Les badges de modèle ci-dessous reflètent le fournisseur par défaut actuel ({{provider}}). Modifiez le fournisseur par défaut ou les modèles par agent dans Paramètres → Paramètres des agents.",
     "noProjectSelected": "Aucun projet sélectionné",
     "noProjectSelectedDescription": "Sélectionnez un projet dans le menu déroulant pour voir et configurer les serveurs MCP.",
     "projectNotInitialized": "Projet non initialisé",
@@ -898,6 +1156,16 @@
     "restore": "Restaurer",
     "noMcpServers": "Aucun serveur MCP",
     "cannotRemove": "Impossible à supprimer (requis)",
+    "toggleServer": "Basculer le serveur MCP {{server}}",
+    "agentCount": "({{count}} agents)",
+    "healthCheckFailed": "Échec de la vérification de santé",
+    "connectionTestFailed": "Échec du test de connexion",
+    "agentCard": {
+      "mcpServers": "Serveurs MCP",
+      "availableTools": "Outils disponibles",
+      "textOnly": "Texte uniquement (sans outils)",
+      "mcpCount": "{{count}} MCP"
+    },
     "servers": {
       "context7": {
         "name": "Context7",
@@ -921,12 +1189,26 @@
         "name": "Puppeteer",
         "description": "Automatisation du navigateur web pour les tests"
       },
+      "serena": {
+        "name": "Serena",
+        "description": "Outils sémantiques de codebase fournis par Serena MCP"
+      },
       "autoClaude": {
         "name": "Outils Aperant",
         "description": "Suivi de la progression du build"
       }
     },
+    "builtinDefaultsTitle": "Valeurs par défaut intégrées",
+    "builtinDefaultsDescription": "Choisissez quels serveurs MCP intégrés sont activés par défaut pour les sessions d'agent. Les paramètres de projet peuvent toujours remplacer les serveurs propres au projet.",
+    "serenaLaunchWebUi": "Lancer l'interface web Serena",
+    "serenaLaunchWebUiDescription": "Désactivez cette option pour démarrer Serena MCP sans son tableau de bord/interface web.",
     "customServers": "Serveurs personnalisés",
+    "customServer": "Personnalisé",
+    "globalServer": "Serveur global",
+    "projectServer": "Serveur du projet",
+    "projectEnabled": "Activé par le projet",
+    "projectOverride": "Remplacement du projet",
+    "disabledInherited": "Désactivé hérité",
     "addCustomServer": "Ajouter un serveur personnalisé",
     "editCustomServer": "Modifier le serveur personnalisé",
     "customServerDescription": "Ajouter un serveur MCP basé sur une commande ou HTTP",

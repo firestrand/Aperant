@@ -29,12 +29,14 @@ import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetada
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   DEFAULT_AGENT_PROFILES,
-  DEFAULT_PHASE_MODELS,
-  DEFAULT_PHASE_THINKING,
   FAST_MODE_MODELS,
-  PHASE_KEYS,
-  getProviderPreset
+  PHASE_KEYS
 } from '../../shared/constants';
+import { resolveEffectiveAgentSettings, resolveProjectProvider } from '../../shared/utils/agent-settings-resolver';
+import {
+  applyMixedPhaseConfigToTaskMetadata,
+  resolveEffectiveMixedPhaseConfig,
+} from '../../shared/utils/task-mixed-profile-metadata';
 import { useSettingsStore } from '../stores/settings-store';
 import { useActiveProvider } from '../hooks/useActiveProvider';
 
@@ -54,24 +56,26 @@ export function TaskCreationWizard({
 }: TaskCreationWizardProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { settings } = useSettingsStore();
-  const { isAnthropic, provider: activeProvider } = useActiveProvider();
+  const { provider: activeProvider } = useActiveProvider();
+  const projects = useProjectStore((state) => state.projects);
+  const project = useMemo(() => projects.find((p) => p.id === projectId), [projects, projectId]);
+  const projectAgentOverrides = project?.settings?.projectAgentOverrides;
 
-  // Resolve per-provider settings (same chain as AgentProfileSettings)
-  const providerConfig = activeProvider ? settings.providerAgentConfig?.[activeProvider] : undefined;
-  const resolvedProfileId = providerConfig?.selectedAgentProfile ?? settings.selectedAgentProfile ?? 'auto';
+  // Resolve per-provider settings with project overrides applied last.
+  const effectiveProvider = resolveProjectProvider(settings, projectAgentOverrides) ?? activeProvider;
+  const providerConfig = effectiveProvider ? settings.providerAgentConfig?.[effectiveProvider] : undefined;
+  const projectProviderConfig = effectiveProvider ? projectAgentOverrides?.providerAgentConfig?.[effectiveProvider] : undefined;
+  const resolvedProfileId = projectProviderConfig?.selectedAgentProfile
+    ?? projectAgentOverrides?.selectedAgentProfile
+    ?? providerConfig?.selectedAgentProfile
+    ?? settings.selectedAgentProfile
+    ?? 'auto';
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === resolvedProfileId
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
-  const providerPreset = activeProvider ? getProviderPreset(activeProvider, resolvedProfileId) : null;
-  const profilePhaseModels = providerPreset?.phaseModels ?? selectedProfile.phaseModels ?? DEFAULT_PHASE_MODELS;
-  const profilePhaseThinking = providerPreset?.phaseThinking ?? selectedProfile.phaseThinking ?? DEFAULT_PHASE_THINKING;
-  // When a provider is active, use provider-specific config or preset defaults (skip global fallback)
-  const resolvedPhaseModels = activeProvider
-    ? (providerConfig?.customPhaseModels ?? profilePhaseModels)
-    : (settings.customPhaseModels ?? profilePhaseModels);
-  const resolvedPhaseThinking = activeProvider
-    ? (providerConfig?.customPhaseThinking ?? profilePhaseThinking)
-    : (settings.customPhaseThinking ?? profilePhaseThinking);
+  const resolvedAgentSettings = resolveEffectiveAgentSettings(settings, effectiveProvider ?? undefined, projectAgentOverrides);
+  const resolvedPhaseModels = resolvedAgentSettings.phaseModels;
+  const resolvedPhaseThinking = resolvedAgentSettings.phaseThinking;
 
   // Form state
   const [title, setTitle] = useState('');
@@ -91,16 +95,9 @@ export function TaskCreationWizard({
   const [useWorktree, setUseWorktree] = useState(true);
   const [pushNewBranches, setPushNewBranches] = useState(true);
 
-  // Get project path from project store
-  const projects = useProjectStore((state) => state.projects);
-  const projectPath = useMemo(() => {
-    const project = projects.find((p) => p.id === projectId);
-    return project?.path ?? null;
-  }, [projects, projectId]);
-  const projectPushNewBranches = useMemo(() => {
-    const project = projects.find((p) => p.id === projectId);
-    return project?.settings?.pushNewBranches !== false;
-  }, [projects, projectId]);
+  // Get project path and branch preferences from project store.
+  const projectPath = project?.path ?? null;
+  const projectPushNewBranches = project?.settings?.pushNewBranches !== false;
 
   // Build branch options using shared utility - groups by local/remote with type indicators
   const branchOptions = useMemo(() => {
@@ -148,10 +145,10 @@ export function TaskCreationWizard({
 
   // Show Fast Mode toggle when any phase uses an Opus model
   const showFastModeToggle = useMemo(() => {
-    if (!isAnthropic) return false;
+    if (effectiveProvider !== 'anthropic') return false;
     if (!phaseModels) return false;
     return PHASE_KEYS.some(phase => FAST_MODE_MODELS.includes(phaseModels[phase]));
-  }, [isAnthropic, phaseModels]);
+  }, [effectiveProvider, phaseModels]);
 
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
@@ -457,37 +454,19 @@ export function TaskCreationWizard({
       if (impact) metadata.impact = impact;
       if (model) metadata.model = model;
       if (thinkingLevel) metadata.thinkingLevel = thinkingLevel;
-      if (activeProvider) metadata.provider = activeProvider;
+      if (effectiveProvider) metadata.provider = effectiveProvider;
       if (phaseModels && phaseThinking) {
         metadata.isAutoProfile = true;
         metadata.phaseModels = phaseModels;
         metadata.phaseThinking = phaseThinking;
       }
 
-      // Cross-provider mode: override phaseModels/phaseThinking from mixed config
-      // and add phaseProviders to metadata
-      if (settings.customMixedProfileActive && settings.customMixedPhaseConfig) {
-        const mixed = settings.customMixedPhaseConfig;
-        metadata.phaseModels = {
-          spec: mixed.spec.modelId,
-          planning: mixed.planning.modelId,
-          coding: mixed.coding.modelId,
-          qa: mixed.qa.modelId,
-        };
-        metadata.phaseThinking = {
-          spec: mixed.spec.thinkingLevel,
-          planning: mixed.planning.thinkingLevel,
-          coding: mixed.coding.thinkingLevel,
-          qa: mixed.qa.thinkingLevel,
-        };
-        metadata.phaseProviders = {
-          spec: mixed.spec.provider,
-          planning: mixed.planning.provider,
-          coding: mixed.coding.provider,
-          qa: mixed.qa.provider,
-        };
-        metadata.isAutoProfile = true; // Ensure per-phase resolution is used
-      }
+      // Cross-provider mode: override phaseModels/phaseThinking from the effective
+      // mixed config and add phaseProviders to metadata.
+      applyMixedPhaseConfigToTaskMetadata(
+        metadata,
+        resolveEffectiveMixedPhaseConfig(settings, projectAgentOverrides),
+      );
 
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;

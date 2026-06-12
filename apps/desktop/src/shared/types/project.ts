@@ -2,6 +2,17 @@
  * Project-related types
  */
 
+import type { BuiltinProvider } from './provider-account';
+import type {
+  FeatureModelConfig,
+  FeatureThinkingConfig,
+  MixedFeatureConfig,
+  MixedPhaseConfig,
+  PerProviderAgentConfig,
+  PhaseModelConfig,
+  PhaseThinkingConfig,
+} from './settings';
+
 export interface Project {
   id: string;
   name: string;
@@ -12,8 +23,24 @@ export interface Project {
   updatedAt: Date;
 }
 
+export interface ProjectAgentOverrides {
+  /** Default provider for tasks and feature runners in this project. */
+  provider?: BuiltinProvider;
+  selectedAgentProfile?: string;
+  customPhaseModels?: PhaseModelConfig;
+  customPhaseThinking?: PhaseThinkingConfig;
+  featureModels?: FeatureModelConfig;
+  featureThinking?: FeatureThinkingConfig;
+  providerAgentConfig?: Partial<Record<BuiltinProvider, PerProviderAgentConfig>>;
+  customMixedProfileActive?: boolean;
+  customMixedPhaseConfig?: MixedPhaseConfig;
+  customMixedFeatureConfig?: MixedFeatureConfig;
+}
+
 export interface ProjectSettings {
-  model: string;
+  /** @deprecated Use projectAgentOverrides for runtime agent model configuration. */
+  model?: string;
+  projectAgentOverrides?: ProjectAgentOverrides;
   memoryBackend: 'memory' | 'file';
   linearSync: boolean;
   linearTeamId?: string;
@@ -334,6 +361,8 @@ export interface ProjectEnvConfig {
   // Memory Integration (V2 - Multi-provider support)
   // Uses LadybugDB embedded database (no Docker required)
   memoryEnabled: boolean;
+  /** Optional project-specific Graphiti MCP endpoint used by agent runtime. */
+  memoryMcpUrl?: string;
   memoryProviderConfig?: MemoryProviderConfig;  // Provider configuration
   // Legacy fields (still supported for backward compatibility)
   openaiApiKey?: string;

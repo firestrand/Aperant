@@ -410,6 +410,15 @@ export interface ElectronAPI {
   setCrossProviderQueueOrder: (order: string[]) => Promise<IPCResult>;
   saveModelOverrides: (overrides: Record<string, unknown>) => Promise<IPCResult>;
   testProviderConnection: (provider: string, config: { apiKey?: string; baseUrl?: string; region?: string }) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+  listProviderModels: (
+    provider: string,
+    config: {
+      apiKey?: string;
+      authType?: 'oauth' | 'api-key';
+      oauthTokenFilePath?: string;
+      baseUrl?: string;
+    }
+  ) => Promise<IPCResult<{ models: Array<{ id: string; display_name: string }> }>>;
   checkEnvCredentials: () => Promise<IPCResult<Record<string, boolean>>>;
 
   // Codex OAuth authentication
@@ -417,7 +426,13 @@ export interface ElectronAPI {
   codexAuthStatus: () => Promise<{ success: boolean; data?: { isAuthenticated: boolean; expiresAt?: number }; error?: string }>;
   codexAuthLogout: () => Promise<{ success: boolean; error?: string }>;
 
+  // Google OAuth authentication
+  googleAuthLogin: () => Promise<{ success: boolean; data?: { accessToken: string; refreshToken: string; expiresAt: number; email?: string }; error?: string }>;
+  googleAuthStatus: () => Promise<{ success: boolean; data?: { isAuthenticated: boolean; expiresAt?: number }; error?: string }>;
+  googleAuthLogout: () => Promise<{ success: boolean; error?: string }>;
+
   // Dialog operations
+
   selectDirectory: () => Promise<string | null>;
   createProjectFolder: (location: string, name: string, initGit: boolean) => Promise<IPCResult<CreateProjectFolderResult>>;
   getDefaultProjectLocation: () => Promise<string | null>;

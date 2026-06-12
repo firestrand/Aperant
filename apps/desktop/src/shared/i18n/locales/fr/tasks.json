@@ -353,5 +353,83 @@
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
+  },
+  "workItems": {
+    "title": "Éléments de travail",
+    "description": "Transformez une spécification, un PRD ou un plan d'implémentation en tâches liées par dépendances. Aperant créera une tâche par phase ou section et reliera les dépendances pour exécuter le travail prêt en parallèle.",
+    "inputTitle": "Spécification, PRD ou plan d'implémentation",
+    "inputDescription": "Collez un implementation_plan.json, une spécification Markdown ou un PRD. Les plans JSON peuvent inclure phases, sous-tâches et relations depends_on.",
+    "loadFromTask": "Charger depuis une tâche existante",
+    "selectTaskPlaceholder": "Sélectionnez une tâche avec un plan d'implémentation...",
+    "loadPlan": "Charger le plan",
+    "loadErrorTitle": "Échec du chargement du plan",
+    "loadErrorDescription": "Impossible de lire implementation_plan.json pour la tâche sélectionnée.",
+    "placeholder": "Collez un JSON de plan d'implémentation, une spécification Markdown ou un PRD ici...",
+    "create": "Créer les éléments de travail",
+    "creating": "Création des éléments de travail...",
+    "previewTitle": "Aperçu",
+    "previewDescription": "Vérifiez les phases et les liens de dépendance avant de créer les tâches.",
+    "emptyPreview": "Collez un plan pour prévisualiser les éléments de travail générés.",
+    "dependsOn": "Dépend de : {{dependencies}}",
+    "phaseMeta": "{{subtasks}} sous-tâches · {{dependencies}} dépendances",
+    "successTitle": "Éléments de travail créés",
+    "successDescription": "{{count}} tâche(s) liée(s) par dépendances créée(s) dans {{project}}.",
+    "partialSuccessTitle": "Certains éléments de travail n'ont pas été créés",
+    "partialSuccessDescription": "{{created}} tâche(s) créée(s) ; {{failed}} phase(s) en échec.",
+    "errorTitle": "Échec de création des éléments de travail",
+    "errorDescription": "Une erreur inconnue s'est produite pendant la création des éléments de travail.",
+    "target": {
+      "title": "Projet cible",
+      "description": "Choisissez où les tâches générées seront créées.",
+      "createNew": "Nouveau projet",
+      "selected": "Destination : {{project}}",
+      "unknownProject": "Projet inconnu"
+    },
+    "workflow": {
+      "title": "Flux du brouillon",
+      "description": "Révisez et approuvez le brouillon avant que la création de tâches n'écrive dans un projet.",
+      "review": "Réviser le brouillon",
+      "revise": "Modifier",
+      "approve": "Approuver",
+      "approvalRequired": "Approuvez le brouillon avant de créer les éléments de travail.",
+      "stages": {
+        "ideation": "Idéation",
+        "review": "Révision",
+        "revise": "Modification",
+        "approved": "Approuvé"
+      }
+    },
+    "confirm": {
+      "title": "Créer les éléments de travail ?",
+      "description": "Aperant créera des tâches liées par dépendances dans {{project}}.",
+      "summary": "{{phases}} phase(s) · {{subtasks}} tâche(s)",
+      "cancel": "Annuler",
+      "create": "Créer les tâches"
+    },
+    "stats": {
+      "phases": "Phases",
+      "subtasks": "Sous-tâches",
+      "dependencies": "Dépendances"
+    },
+    "fallbacks": {
+      "subtask": "Sous-tâche {{number}}",
+      "phase": "Phase {{number}}",
+      "pastedSpecFile": "elements-travail-colles.txt",
+      "importedSpecPhase": "Spécification importée",
+      "importedSpecSubtask": "Examiner le document source"
+    },
+    "descriptionLabels": {
+      "parentSpec": "Spécification parente",
+      "specContext": "Contexte de la spécification",
+      "phase": "Phase",
+      "type": "Type",
+      "workItems": "Éléments de travail",
+      "finalAcceptanceCriteria": "Critères d'acceptation finaux"
+    },
+    "errors": {
+      "invalidJson": "Le contenu collé n'est pas un JSON valide.",
+      "invalidRoot": "Le JSON collé doit être un objet.",
+      "missingPhases": "Le plan doit contenir au moins une phase."
+    }
   }
 }

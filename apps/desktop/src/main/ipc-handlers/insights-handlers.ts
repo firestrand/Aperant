@@ -25,8 +25,8 @@ import type { ThinkingLevel } from "../../shared/types/settings";
 /**
  * Read insights feature settings using per-provider resolution
  */
-function getInsightsFeatureSettings(): InsightsModelConfig {
-  const { model, thinkingLevel } = getActiveProviderFeatureSettings('insights');
+function getInsightsFeatureSettings(projectOverrides?: import('../../shared/types/project').ProjectAgentOverrides): InsightsModelConfig {
+  const { model, thinkingLevel } = getActiveProviderFeatureSettings('insights', projectOverrides);
   return {
     profileId: "balanced",
     model,
@@ -70,7 +70,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
       }
 
       // Get feature settings from Agent Settings and merge with provided config
-      const featureSettings = getInsightsFeatureSettings();
+      const featureSettings = getInsightsFeatureSettings(project.settings.projectAgentOverrides);
       const configWithSettings: InsightsModelConfig = {
         // Start with feature settings as defaults
         ...featureSettings,

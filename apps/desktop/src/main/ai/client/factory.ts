@@ -85,6 +85,8 @@ export async function createAgentClient(
     maxSteps = DEFAULT_MAX_STEPS,
     profileId,
     additionalMcpServers,
+    mcpOptions,
+    mcpRegistryOptions,
     queueConfig,
   } = config;
 
@@ -159,7 +161,7 @@ export async function createAgentClient(
   );
 
   // 5. Initialize MCP servers and merge tools
-  const mcpResolveOptions: McpServerResolveOptions = {};
+  const mcpResolveOptions: McpServerResolveOptions = mcpOptions ?? {};
   let mcpClients: McpClientResult[] = [];
 
   const mcpServerIds = getRequiredMcpServers(agentType, mcpResolveOptions);
@@ -168,7 +170,10 @@ export async function createAgentClient(
   }
 
   if (mcpServerIds.length > 0) {
-    mcpClients = await createMcpClientsForAgent(agentType, mcpResolveOptions);
+    mcpClients = await createMcpClientsForAgent(agentType, mcpResolveOptions, {
+      specDir: toolContext.specDir,
+      ...mcpRegistryOptions,
+    });
 
     // Merge MCP tools into the tool map
     const mcpTools = mergeMcpTools(mcpClients);

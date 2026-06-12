@@ -104,6 +104,36 @@ describe('getMcpServerConfig', () => {
     });
   });
 
+  describe('serena', () => {
+    it('returns Serena config with web dashboard enabled by default', () => {
+      const config = getMcpServerConfig('serena');
+      expect(config).not.toBeNull();
+      expect(config?.id).toBe('serena');
+      expect(config?.enabledByDefault).toBe(false);
+      expect(config?.transport.type).toBe('stdio');
+      if (config?.transport.type === 'stdio') {
+        expect(config.transport.command).toBe('serena');
+        expect(config.transport.args).toContain('--enable-web-dashboard');
+        expect(config.transport.args).toContain('true');
+      }
+    });
+
+    it('can disable Serena web dashboard launch', () => {
+      const config = getMcpServerConfig('serena', { serenaLaunchWebUi: false });
+      expect(config?.transport.type).toBe('stdio');
+      if (config?.transport.type === 'stdio') {
+        expect(config.transport.args).toEqual([
+          'start-mcp-server',
+          '--context',
+          'ide',
+          '--project-from-cwd',
+          '--enable-web-dashboard',
+          'false',
+        ]);
+      }
+    });
+  });
+
   describe('auto-claude', () => {
     it('returns auto-claude config with empty specDir as default', () => {
       const config = getMcpServerConfig('auto-claude', {});
@@ -123,6 +153,50 @@ describe('getMcpServerConfig', () => {
       const config = getMcpServerConfig('auto-claude', {});
       if (config?.transport.type === 'stdio') {
         expect(config.transport.command).toBe('node');
+      }
+    });
+  });
+
+  describe('custom servers', () => {
+    it('returns command custom server configs from global definitions', () => {
+      const config = getMcpServerConfig('my-custom', {
+        customMcpServers: [
+          {
+            id: 'my-custom',
+            name: 'My Custom',
+            type: 'command',
+            command: 'npx',
+            args: ['-y', 'my-mcp'],
+          },
+        ],
+      });
+
+      expect(config?.id).toBe('my-custom');
+      expect(config?.transport.type).toBe('stdio');
+      if (config?.transport.type === 'stdio') {
+        expect(config.transport.command).toBe('npx');
+        expect(config.transport.args).toEqual(['-y', 'my-mcp']);
+      }
+    });
+
+    it('returns HTTP custom server configs from global definitions', () => {
+      const config = getMcpServerConfig('my-http', {
+        customMcpServers: [
+          {
+            id: 'my-http',
+            name: 'My HTTP',
+            type: 'http',
+            url: 'https://mcp.example.com/sse',
+            headers: { Authorization: 'Bearer token' },
+          },
+        ],
+      });
+
+      expect(config?.id).toBe('my-http');
+      expect(config?.transport.type).toBe('streamable-http');
+      if (config?.transport.type === 'streamable-http') {
+        expect(config.transport.url).toBe('https://mcp.example.com/sse');
+        expect(config.transport.headers).toEqual({ Authorization: 'Bearer token' });
       }
     });
   });

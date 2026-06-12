@@ -19,7 +19,8 @@ import {
   Code,
   Bug,
   Terminal,
-  Users
+  Users,
+  Server
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
@@ -53,6 +54,7 @@ import { DevToolsSettings } from './DevToolsSettings';
 import { DebugSettings } from './DebugSettings';
 import { TerminalFontSettings } from './terminal-font-settings/TerminalFontSettings';
 import { AccountSettings } from './AccountSettings';
+import { GlobalMcpDefaultsSettings } from './GlobalMcpDefaultsSettings';
 import { ProjectSelector } from './ProjectSelector';
 import { ProjectSettingsContent, ProjectSettingsSection } from './ProjectSettingsContent';
 import { useProjectStore } from '../../stores/project-store';
@@ -67,7 +69,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'terminal-fonts' | 'agent' | 'paths' | 'integrations' | 'accounts' | 'api-profiles' | 'updates' | 'notifications' | 'debug';
+export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'terminal-fonts' | 'agent' | 'paths' | 'integrations' | 'accounts' | 'api-profiles' | 'mcp' | 'updates' | 'notifications' | 'debug';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -83,6 +85,7 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
   { id: 'agent', icon: Bot },
   { id: 'paths', icon: FolderOpen },
   { id: 'accounts', icon: Users },
+  { id: 'mcp', icon: Server },
   { id: 'updates', icon: Package },
   { id: 'notifications', icon: Bell },
   { id: 'debug', icon: Bug }
@@ -90,10 +93,13 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
 
 const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'general', icon: Settings2 },
+  { id: 'agent-settings', icon: Bot },
+  { id: 'diagnostics', icon: Bug },
   { id: 'linear', icon: Zap },
   { id: 'github', icon: Github },
   { id: 'gitlab', icon: GitLabIcon },
-  { id: 'memory', icon: Database }
+  { id: 'memory', icon: Database },
+  { id: 'mcp', icon: Server }
 ];
 
 /**
@@ -178,6 +184,11 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     selectProject(projectId);
   };
 
+  const handleOpenGlobalMcpSettings = () => {
+    setActiveTopLevel('app');
+    setAppSection('mcp');
+  };
+
   const renderAppSection = () => {
     switch (appSection) {
       case 'appearance':
@@ -196,6 +207,8 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />;
       case 'accounts':
         return <AccountSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
+      case 'mcp':
+        return <GlobalMcpDefaultsSettings />;
       case 'updates':
         return <AdvancedSettings settings={settings} onSettingsChange={setSettings} section="updates" version={version} />;
       case 'notifications':
@@ -217,6 +230,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         activeSection={projectSection}
         isOpen={open}
         onHookReady={handleProjectHookReady}
+        onOpenGlobalMcpSettings={handleOpenGlobalMcpSettings}
       />
     );
   };
@@ -367,7 +381,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
             {/* Main content */}
             <div className="flex-1 overflow-hidden">
               <ScrollArea className="h-full">
-                <div className={appSection === 'terminal-fonts' ? 'p-8' : 'p-8 max-w-2xl'}>
+                <div className={(appSection === 'terminal-fonts' || appSection === 'mcp' || (activeTopLevel === 'project' && projectSection === 'mcp')) ? 'p-8' : 'p-8 max-w-2xl'}>
                   {renderContent()}
                 </div>
               </ScrollArea>
