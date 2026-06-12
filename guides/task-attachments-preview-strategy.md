@@ -1,6 +1,6 @@
 # Task Attachments and Artifact Preview Strategy
 
-Phase 6 decision record for the selected fork-feature adoption documented in `selected-fork-features-characterization.md`.
+Phase 6 decision record for the selected fork-feature adoption summarized in `fork-differences.md` and tracked in `selected-fork-features-characterization.md`.
 
 ## Strategy decision
 

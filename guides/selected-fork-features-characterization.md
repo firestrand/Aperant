@@ -1,8 +1,8 @@
-# Selected Fork Features Characterization
+# Selected Fork Feature Adoption Record
 
-Phase 0 artifact and tracked overview for the selected fork-feature adoption work.
+This is a detailed adoption record for selected features ported from another Auto Claude-derived fork. For the reader-friendly overview of Aperant's lineage and fork differences, see [fork-differences.md](fork-differences.md).
 
-Aperant is now effectively a permanent independent fork of the starting Auto Claude project. This artifact documents the selected features ported from another Auto Claude-derived fork and the Aperant-native constraints used to adopt them safely.
+Aperant is now a long-lived independent fork of the starting Auto Claude project. The features below were adopted only where they fit Aperant's TypeScript-first Electron architecture, Vercel AI SDK v6 agent runtime, security model, i18n requirements, and default-off rollout strategy.
 
 ## Characterization tests and current coverage
 

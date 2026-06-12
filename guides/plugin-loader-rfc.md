@@ -1,6 +1,6 @@
 # Plugin Loader RFC
 
-Phase 8 of the selected fork-feature adoption documented in `selected-fork-features-characterization.md` is an evaluation gate. This RFC intentionally does not add an executable plugin surface.
+Phase 8 of the selected fork-feature adoption summarized in `fork-differences.md` and tracked in `selected-fork-features-characterization.md` is an evaluation gate. This RFC intentionally does not add an executable plugin surface.
 
 ## Problem statement
 

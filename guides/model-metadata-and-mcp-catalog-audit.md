@@ -1,6 +1,6 @@
 # Model Metadata Verification and MCP Catalog Audit
 
-Phase 7 verification record for the selected fork-feature adoption documented in `selected-fork-features-characterization.md`.
+Phase 7 verification record for the selected fork-feature adoption summarized in `fork-differences.md` and tracked in `selected-fork-features-characterization.md`.
 
 ## Model metadata decision
 

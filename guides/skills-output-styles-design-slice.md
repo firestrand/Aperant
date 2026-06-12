@@ -1,6 +1,6 @@
 # Skills and Output Styles Design Slice
 
-Phase 4 design note for the selected fork-feature adoption documented in `selected-fork-features-characterization.md`.
+Phase 4 design note for the selected fork-feature adoption summarized in `fork-differences.md` and tracked in `selected-fork-features-characterization.md`.
 
 ## Why not just project instructions?
 

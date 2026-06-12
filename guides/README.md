@@ -2,16 +2,29 @@
 
 Detailed documentation for Aperant setup, usage, and project direction.
 
-Aperant should now be treated as a long-lived independent fork of the starting Auto Claude project. The guides below include the selected fork-feature adoption record: features were ported from another Auto Claude-derived fork only where they fit Aperant's TypeScript-first Electron architecture, safety model, and default-off rollout approach.
+For the canonical explanation of how Aperant differs from the starting Auto Claude codebase and the selected donor fork, start with [fork-differences.md](fork-differences.md).
 
-## Available Guides
+## Start Here
 
 | Guide | Description |
 |-------|-------------|
-| **[CLI-USAGE.md](CLI-USAGE.md)** | Terminal-only usage for power users, headless servers, and CI/CD |
+| **[fork-differences.md](fork-differences.md)** | Canonical overview of Aperant's fork lineage, architectural divergence, adopted fork features, and future porting rules |
+
+## User and Platform Guides
+
+| Guide | Description |
+|-------|-------------|
+| **[CLI-USAGE.md](CLI-USAGE.md)** | Desktop-first usage notes, source-running commands, and configuration overview |
 | **[windows-development.md](windows-development.md)** | Windows-specific development guide (file encoding, paths, line endings) |
 | **[linux.md](linux.md)** | Linux-specific installation and build guide (Flatpak, AppImage) |
-| **[selected-fork-features-characterization.md](selected-fork-features-characterization.md)** | Fork-feature adoption overview, scope, and rollout inventory |
+
+## Adoption Records and Evidence
+
+These records preserve the detailed decisions behind selected features ported from another Auto Claude-derived fork. They support [fork-differences.md](fork-differences.md) rather than replacing it.
+
+| Guide | Description |
+|-------|-------------|
+| **[selected-fork-features-characterization.md](selected-fork-features-characterization.md)** | Detailed adoption record, characterization coverage, rollout settings, and remaining candidate inventory |
 | **[mcp-connector-catalog-verification.md](mcp-connector-catalog-verification.md)** | MCP catalog package verification and safety record |
 | **[skills-output-styles-design-slice.md](skills-output-styles-design-slice.md)** | Skills and output-style adoption decision record |
 | **[scheduled-tasks-recurrence-decision.md](scheduled-tasks-recurrence-decision.md)** | Scheduled task recurrence semantics and local-time decision |
