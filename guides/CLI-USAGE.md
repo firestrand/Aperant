@@ -1,10 +1,10 @@
-# Aperant
+# Aperant Desktop Usage
 
-Aperant is a desktop application. All functionality is accessed through the Electron desktop UI.
+Aperant is a desktop application. There is no standalone CLI workflow; all product functionality is accessed through the Electron desktop UI.
 
 ## Getting Started
 
-1. Download the latest release for your platform from the [Releases page](https://github.com/AndyMik90/Auto-Claude/releases)
+1. Download the latest release for your platform from the [Aperant releases page](https://github.com/firestrand/Aperant/releases)
 2. Install and launch the application
 3. Open your project (a git repository folder)
 4. Connect Claude via the OAuth setup guide in the app
