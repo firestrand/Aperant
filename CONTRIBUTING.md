@@ -6,14 +6,14 @@ Thank you for your interest in contributing to Aperant! This document provides g
 
 Aperant began from the Auto Claude codebase, but it is now maintained as a long-lived independent fork with its own product direction and architecture. Contributions should target Aperant's current `apps/desktop` TypeScript/Electron codebase and Vercel AI SDK v6 agent runtime rather than attempting direct merges from the starting project or older forks.
 
-Some recent improvements were selectively ported from another Auto Claude-derived fork. Those ports are treated as Aperant-native features: they must preserve default-off rollout paths, English/French i18n, cross-platform behavior, and the existing security model. See [guides/selected-fork-features-characterization.md](guides/selected-fork-features-characterization.md) and the related guide artifacts for the adoption record.
+Use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide to Aperant's lineage, architectural divergence, selected donor-fork features, and future porting rules.
 
 ## How to Contribute
 
 | What you want to do | Where to start |
 |----------------------|----------------|
 | Bug fixes & small improvements | Open a PR directly |
-| New features / architecture changes | Start a [GitHub Discussion](https://github.com/AndyMik90/Auto-Claude/discussions) or ask in [Discord](https://discord.com/channels/1448614759996854284/1451298184612548779) first |
+| New features / architecture changes | Start a [GitHub Discussion](https://github.com/firestrand/Aperant/discussions) or ask in [Discord](https://discord.com/channels/1448614759996854284/1451298184612548779) first |
 | Questions & setup help | [Discord #setup-help](https://discord.com/channels/1448614759996854284/1451298184612548779) |
 
 ## AI-Assisted Contributions
@@ -136,8 +136,8 @@ The fastest way to get started:
 
 ```bash
 # Clone the repository
-git clone https://github.com/AndyMik90/Auto-Claude.git
-cd Auto-Claude
+git clone https://github.com/firestrand/Aperant.git
+cd Aperant
 
 # Install all dependencies (cross-platform)
 npm run install:all
@@ -186,7 +186,7 @@ Aperant automatically downloads prebuilt binaries for Windows. If prebuilts aren
 
 </details>
 
-> **Note:** For regular usage, we recommend downloading the pre-built releases from [GitHub Releases](https://github.com/AndyMik90/Auto-Claude/releases). Running from source is primarily for contributors and those testing unreleased features.
+> **Note:** For regular usage, we recommend downloading the pre-built releases from [GitHub Releases](https://github.com/firestrand/Aperant/releases). Running from source is primarily for contributors and those testing unreleased features.
 
 ## Pre-commit Hooks
 
@@ -338,17 +338,17 @@ When contributing to Aperant, you'll typically fork the repository first. Proper
 # 1. Fork on GitHub (click the Fork button on the repo page)
 
 # 2. Clone YOUR fork (not the original repo)
-git clone https://github.com/YOUR-USERNAME/Auto-Claude.git
-cd Auto-Claude
+git clone https://github.com/YOUR-USERNAME/Aperant.git
+cd Aperant
 
 # 3. Verify your remotes point to YOUR fork
 git remote -v
 # Should show:
-# origin  https://github.com/YOUR-USERNAME/Auto-Claude.git (fetch)
-# origin  https://github.com/YOUR-USERNAME/Auto-Claude.git (push)
+# origin  https://github.com/YOUR-USERNAME/Aperant.git (fetch)
+# origin  https://github.com/YOUR-USERNAME/Aperant.git (push)
 
 # 4. Add upstream remote to sync with the original repo
-git remote add upstream https://github.com/AndyMik90/Auto-Claude.git
+git remote add upstream https://github.com/firestrand/Aperant.git
 ```
 
 #### Keeping Your Fork Updated
