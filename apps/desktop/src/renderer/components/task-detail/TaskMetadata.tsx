@@ -23,6 +23,8 @@ import remarkGfm from 'remark-gfm';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { TaskAttachmentPreview } from '../task-form/TaskAttachmentPreview';
+import { useSettingsStore } from '../../stores/settings-store';
 import { cn, formatRelativeTime } from '../../lib/utils';
 import {
   TASK_CATEGORY_LABELS,
@@ -64,6 +66,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
   const [hasOverflow, setHasOverflow] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const contentId = useId();
+  const taskAttachmentsEnabled = useSettingsStore((state) => state.settings.taskAttachmentsEnabled === true);
 
   // Handle JSON error description with i18n
   const displayDescription = (() => {
@@ -87,6 +90,10 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       setHasOverflow(hasContentOverflow);
     }
   }, [task.id, task.description]);
+
+  const displayRationale = task.metadata?.rationale === 'tasks:metadata.scheduledTaskRationale'
+    ? t('tasks:metadata.scheduledTaskRationale', { name: task.metadata.scheduledTaskName ?? task.title })
+    : task.metadata?.rationale;
 
   const hasClassification = task.metadata && (
     task.metadata.category ||
@@ -169,10 +176,10 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <Clock className="h-3 w-3" />
-            Created {formatRelativeTime(task.createdAt)}
+            {t('tasks:metadata.created', { time: formatRelativeTime(task.createdAt) })}
           </span>
           <span className="text-border">•</span>
-          <span>Updated {formatRelativeTime(task.updatedAt)}</span>
+          <span>{t('tasks:metadata.updated', { time: formatRelativeTime(task.updatedAt) })}</span>
         </div>
       </div>
 
@@ -233,13 +240,13 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
       {task.metadata && (
         <div className="space-y-4 pt-2">
           {/* Rationale */}
-          {task.metadata.rationale && (
+          {displayRationale && (
             <div>
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                 <Lightbulb className="h-3 w-3 text-warning" />
-                Rationale
+                {t('tasks:metadata.rationale')}
               </h3>
-              <p className="text-sm text-foreground/80">{task.metadata.rationale}</p>
+              <p className="text-sm text-foreground/80">{displayRationale}</p>
             </div>
           )}
 
@@ -248,7 +255,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
             <div>
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                 <Target className="h-3 w-3 text-success" />
-                Problem Solved
+                {t('tasks:metadata.problemSolved')}
               </h3>
               <p className="text-sm text-foreground/80">{task.metadata.problemSolved}</p>
             </div>
@@ -259,7 +266,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
             <div>
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                 <Users className="h-3 w-3 text-info" />
-                Target Audience
+                {t('tasks:metadata.targetAudience')}
               </h3>
               <p className="text-sm text-foreground/80">{task.metadata.targetAudience}</p>
             </div>
@@ -270,7 +277,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
             <div>
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                 <GitBranch className="h-3 w-3 text-purple-400" />
-                Dependencies
+                {t('tasks:metadata.dependencies')}
               </h3>
               <ul className="text-sm text-foreground/80 list-disc list-inside space-y-0.5">
                 {task.metadata.dependencies.map((dep, idx) => (
@@ -307,7 +314,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
             <div>
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                 <ListChecks className="h-3 w-3 text-success" />
-                Acceptance Criteria
+                {t('tasks:metadata.acceptanceCriteria')}
               </h3>
               <ul className="text-sm text-foreground/80 list-disc list-inside space-y-0.5">
                 {task.metadata.acceptanceCriteria.map((criteria, idx) => (
@@ -317,12 +324,27 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
             </div>
           )}
 
+          {/* Attachments */}
+          {taskAttachmentsEnabled && task.metadata.attachments && task.metadata.attachments.length > 0 && (
+            <div>
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                <FileCode className="h-3 w-3" />
+                {t('tasks:attachments.title')}
+              </h3>
+              <div className="space-y-2">
+                {task.metadata.attachments.map((attachment) => (
+                  <TaskAttachmentPreview key={attachment.id} attachment={attachment} />
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Affected Files */}
           {task.metadata.affectedFiles && task.metadata.affectedFiles.length > 0 && (
             <div>
               <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                 <FileCode className="h-3 w-3" />
-                Affected Files
+                {t('tasks:metadata.affectedFiles')}
               </h3>
               <div className="flex flex-wrap gap-1">
                 {task.metadata.affectedFiles.map((file, idx) => (

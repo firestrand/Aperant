@@ -75,6 +75,14 @@ export const DEFAULT_APP_SETTINGS = {
     serenaEnabled: false,
     serenaLaunchWebUi: true,
   },
+  // MCP connector catalog is default-off until catalog entries and install flow are verified.
+  mcpConnectorCatalogEnabled: false,
+  // Skills are first-class instruction packs. Default off until rollout is proven.
+  skillsEnabled: false,
+  // Scheduled recurring tasks are default-off until queue/start behavior is proven.
+  scheduledTasksEnabled: false,
+  // Non-image task attachments and artifact previews are default-off until sanitization is proven.
+  taskAttachmentsEnabled: false,
   // GPU acceleration for terminal rendering
   // Default to 'off' until WebGL stability is proven across all GPU drivers.
   // Users can opt-in via Settings > Display > GPU Acceleration.

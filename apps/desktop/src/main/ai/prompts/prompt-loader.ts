@@ -243,7 +243,12 @@ export function injectContext(promptTemplate: string, context: PromptContext): s
     );
   }
 
-  // 5. Base prompt
+  // 5. Skill instructions selected for this agent surface
+  if (context.skillInstructions) {
+    sections.push(context.skillInstructions);
+  }
+
+  // 6. Base prompt
   sections.push(promptTemplate);
 
   return sections.join('');

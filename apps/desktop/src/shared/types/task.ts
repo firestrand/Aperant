@@ -127,6 +127,19 @@ export interface ImageAttachment {
   thumbnail?: string;   // Base64 thumbnail for preview
 }
 
+export type TaskAttachmentKind = 'text' | 'markdown' | 'code' | 'config';
+
+export interface TaskAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  kind: TaskAttachmentKind;
+  data?: string;
+  path?: string;
+  previewText?: string;
+}
+
 // Referenced file types for task creation (files/folders from project)
 export interface ReferencedFile {
   id: string;           // Unique identifier (UUID)
@@ -152,6 +165,7 @@ export interface TaskDraft {
   phaseModels?: PhaseModelConfig;
   phaseThinking?: PhaseThinkingConfig;
   images: ImageAttachment[];
+  attachments?: TaskAttachment[];
   referencedFiles: ReferencedFile[];
   requireReviewBeforeCoding?: boolean;
   fastMode?: boolean;
@@ -202,6 +216,7 @@ export interface TaskMetadata {
 
   // Context
   rationale?: string;  // Why this task matters
+  scheduledTaskName?: string;  // Name of scheduled task that created this task
   problemSolved?: string;  // What problem this addresses
   targetAudience?: string;  // Who benefits
 
@@ -221,6 +236,9 @@ export interface TaskMetadata {
 
   // Image attachments (screenshots, mockups, diagrams)
   attachedImages?: ImageAttachment[];
+
+  // Approved non-image attachments copied into the spec directory when enabled.
+  attachments?: TaskAttachment[];
 
   // Referenced files (files/folders from project for context)
   referencedFiles?: ReferencedFile[];

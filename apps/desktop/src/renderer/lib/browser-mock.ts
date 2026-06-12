@@ -47,6 +47,72 @@ const browserMockAPI: ElectronAPI = {
   // Settings
   ...settingsMock,
 
+  // Skills
+  listSkills: async () => ({ success: true, data: [] }),
+  createSkill: async (input) => ({
+    success: true,
+    data: {
+      manifest: {
+        id: input.id,
+        name: input.name,
+        description: input.description,
+        body: 'Describe the reusable workflow, constraints, and examples for this skill.',
+        surfaces: input.surfaces ?? ['build'],
+      },
+      directory: `/mock/skills/${input.id}`,
+      enabled: true,
+    },
+  }),
+  setSkillEnabled: async (skillId, enabled) => ({
+    success: true,
+    data: {
+      skill: {
+        manifest: {
+          id: skillId,
+          name: skillId,
+          description: 'Mock skill',
+          body: '',
+          surfaces: ['build'],
+        },
+        directory: `/mock/skills/${skillId}`,
+        enabled,
+      },
+    },
+  }),
+  getUserSkillsDirectory: async () => ({ success: true, data: '/mock/skills' }),
+
+  // Scheduled recurring tasks
+  listScheduledTasks: async () => ({ success: true, data: [] }),
+  createScheduledTask: async (input) => ({
+    success: true,
+    data: {
+      id: `schedule-${Date.now()}`,
+      projectId: input.projectId,
+      name: input.name,
+      prompt: input.prompt,
+      recurrence: input.recurrence,
+      enabled: input.enabled ?? false,
+      autoStart: input.autoStart ?? false,
+      nextRunAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    },
+  }),
+  updateScheduledTask: async (scheduleId, input) => ({
+    success: true,
+    data: {
+      id: scheduleId,
+      projectId: input.projectId ?? 'mock-project',
+      name: input.name ?? 'Mock schedule',
+      prompt: input.prompt ?? 'Mock prompt',
+      recurrence: input.recurrence ?? { kind: 'daily', timeOfDay: '09:00' },
+      enabled: input.enabled ?? false,
+      autoStart: input.autoStart ?? false,
+      lastError: input.lastError,
+      nextRunAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    },
+  }),
+  deleteScheduledTask: async () => ({ success: true }),
+  fireScheduledTaskNow: async () => ({ success: false, error: 'Scheduled task firing is unavailable in browser mock.' }),
+
   // Roadmap Operations
   getRoadmap: async () => ({
     success: true,

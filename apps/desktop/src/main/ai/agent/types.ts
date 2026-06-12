@@ -58,6 +58,8 @@ export interface SerializableSessionConfig {
   maxSteps: number;
   specDir: string;
   projectDir: string;
+  /** Enabled skill instruction packs already formatted for prompt injection */
+  skillInstructions?: string | null;
   /** Source spec dir in main project (for worktree → main sync during execution) */
   sourceSpecDir?: string;
   phase?: SessionConfig['phase'];

@@ -8,11 +8,13 @@ import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { CustomMcpDialog } from '../CustomMcpDialog';
 import { McpSettingsPanel } from './McpSettingsPanel';
+import { McpConnectorCatalog } from './McpConnectorCatalog';
 
 export function GlobalMcpDefaultsSettings() {
   const { t } = useTranslation('settings');
   const globalMcpServers = useSettingsStore((state) => state.settings.globalMcpServers ?? []);
   const globalMcpDefaults = useSettingsStore((state) => state.settings.globalMcpDefaults ?? {});
+  const catalogEnabled = useSettingsStore((state) => state.settings.mcpConnectorCatalogEnabled === true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingServer, setEditingServer] = useState<CustomMcpServer | null>(null);
 
@@ -42,6 +44,11 @@ export function GlobalMcpDefaultsSettings() {
     });
   };
 
+  const handleInstallCatalogServer = async (server: CustomMcpServer) => {
+    if (globalMcpServers.some((candidate) => candidate.id === server.id)) return;
+    await saveSettings({ globalMcpServers: [...globalMcpServers, server] });
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-border bg-card p-4">
@@ -67,6 +74,31 @@ export function GlobalMcpDefaultsSettings() {
           </Button>
         </div>
       </div>
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <Label className="text-sm font-medium text-foreground">
+              {t('mcp.catalog.enableTitle')}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t('mcp.catalog.enableDescription')}
+            </p>
+          </div>
+          <Switch
+            checked={catalogEnabled}
+            onCheckedChange={(checked) => saveSettings({ mcpConnectorCatalogEnabled: checked })}
+            aria-label={t('mcp.catalog.enableTitle')}
+          />
+        </div>
+      </div>
+
+      {catalogEnabled && (
+        <McpConnectorCatalog
+          existingServers={globalMcpServers}
+          onInstall={handleInstallCatalogServer}
+        />
+      )}
 
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="mb-4">

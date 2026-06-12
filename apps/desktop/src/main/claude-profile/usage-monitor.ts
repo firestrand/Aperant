@@ -240,8 +240,11 @@ export class UsageMonitor extends EventEmitter {
   private lastInactiveProfileRefreshAt = 0;
 
   // Rate-limit (429) tracking: separate from general API failures, uses longer cooldown
-  private rateLimitedProfiles: Map<string, number> = new Map(); // profileId -> 429 timestamp
+  private rateLimitedProfiles: Map<string, number> = new Map(); // profileId -> cooldown-until timestamp
   private static RATE_LIMIT_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes cooldown for 429s
+
+  // Count repeated identical API errors so noisy provider failures do not flood logs.
+  private apiErrorLogCounts: Map<string, number> = new Map();
 
   // Debug flag for verbose logging
   private readonly isDebug = process.env.DEBUG === 'true';
@@ -271,6 +274,56 @@ export class UsageMonitor extends EventEmitter {
       } else {
         console.warn(message);
       }
+    }
+  }
+
+  private parseRetryAfterMs(retryAfter: string | null, now: number = Date.now()): number | null {
+    if (!retryAfter) {
+      return null;
+    }
+
+    const trimmed = retryAfter.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const seconds = Number(trimmed);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      return seconds * 1000;
+    }
+
+    const retryAt = Date.parse(trimmed);
+    if (!Number.isFinite(retryAt)) {
+      return null;
+    }
+
+    return Math.max(0, retryAt - now);
+  }
+
+  private getRateLimitCooldownMs(response: Response, now: number = Date.now()): number {
+    return this.parseRetryAfterMs(response.headers.get('retry-after'), now) ?? UsageMonitor.RATE_LIMIT_COOLDOWN_MS;
+  }
+
+  private logRepeatedApiError(
+    key: string,
+    level: 'error' | 'warn',
+    message: string,
+    data?: Record<string, unknown>
+  ): void {
+    const count = (this.apiErrorLogCounts.get(key) ?? 0) + 1;
+    this.apiErrorLogCounts.set(key, count);
+
+    if (count === 1) {
+      console[level](message, data);
+      return;
+    }
+
+    if (count === 2) {
+      console.warn('[UsageMonitor] Suppressing repeated API error logs:', {
+        key,
+        suppressedCount: 1,
+        ...data,
+      });
     }
   }
 
@@ -1433,10 +1486,9 @@ export class UsageMonitor extends EventEmitter {
     const profileIdsToCheck = this.getProfileIdFamily(profileId);
 
     for (const id of profileIdsToCheck) {
-      const lastRateLimit = this.rateLimitedProfiles.get(id);
-      if (lastRateLimit) {
-        const elapsed = Date.now() - lastRateLimit;
-        if (elapsed < UsageMonitor.RATE_LIMIT_COOLDOWN_MS) {
+      const rateLimitedUntil = this.rateLimitedProfiles.get(id);
+      if (rateLimitedUntil) {
+        if (Date.now() < rateLimitedUntil) {
           return false; // Any sibling is rate-limited → block all
         }
         this.rateLimitedProfiles.delete(id); // Cooldown expired, clear the marker
@@ -2075,6 +2127,9 @@ export class UsageMonitor extends EventEmitter {
       hasActiveProfile: !!activeProfile
     });
 
+    let providerLogKey = 'unknown';
+    let usageEndpointLogKey = 'unknown';
+
     try {
       // Step 1: Determine if we're using an API profile or OAuth profile
       // Use passed activeProfile if available, otherwise detect to maintain backward compatibility
@@ -2107,6 +2162,7 @@ export class UsageMonitor extends EventEmitter {
         }
       }
 
+      providerLogKey = provider;
       const isAPIProfile = !!apiProfile;
       this.traceLog('[UsageMonitor:TRACE] Fetching usage', {
         provider,
@@ -2117,6 +2173,9 @@ export class UsageMonitor extends EventEmitter {
 
       // Step 3: Get provider-specific usage endpoint
       const usageEndpoint = getUsageEndpoint(provider, baseUrl);
+      if (usageEndpoint) {
+        usageEndpointLogKey = usageEndpoint;
+      }
       if (!usageEndpoint) {
         this.debugLog('[UsageMonitor] Unknown provider - no usage endpoint configured:', {
           provider,
@@ -2193,34 +2252,53 @@ export class UsageMonitor extends EventEmitter {
       });
 
       if (!response.ok) {
-        console.error('[UsageMonitor] API error:', response.status, response.statusText, {
-          provider,
-          endpoint: usageEndpoint
-        });
-
-        // Handle rate limiting with a much longer backoff than general API failures
-        // Propagate to all sibling profiles sharing the same configDir (same API endpoint)
+        // Handle rate limiting with a much longer backoff than general API failures.
+        // Propagate to all sibling profiles sharing the same configDir (same API endpoint).
         if (response.status === 429) {
           const now = Date.now();
+          const cooldownMs = this.getRateLimitCooldownMs(response, now);
+          const cooldownUntil = now + cooldownMs;
           const siblingIds = this.getProfileIdFamily(profileId);
-          console.warn('[UsageMonitor] Rate limited (429) by provider, backing off for 10 minutes:', {
-            provider,
-            endpoint: usageEndpoint,
-            cooldownMs: UsageMonitor.RATE_LIMIT_COOLDOWN_MS,
-            affectedProfiles: siblingIds.length
-          });
+          this.logRepeatedApiError(
+            `429:${provider}:${usageEndpoint}:${siblingIds.join(',')}`,
+            'warn',
+            '[UsageMonitor] Rate limited (429) by provider, backing off:',
+            {
+              provider,
+              endpoint: usageEndpoint,
+              cooldownMs,
+              affectedProfiles: siblingIds.length
+            }
+          );
           for (const id of siblingIds) {
-            this.rateLimitedProfiles.set(id, now);
+            this.rateLimitedProfiles.set(id, cooldownUntil);
           }
           return null;
         }
 
-        // Check for auth failures via status code (works for all providers)
+        // Check for auth failures via status code (works for all providers). These remain
+        // unthrottled because they require user action and should stay visible.
         if (response.status === 401 || response.status === 403) {
+          console.error('[UsageMonitor] API auth error:', response.status, response.statusText, {
+            provider,
+            endpoint: usageEndpoint
+          });
           const error = new Error(`API Auth Failure: ${response.status} (${provider})`);
-          (error as any).statusCode = response.status;
+          (error as { statusCode?: number }).statusCode = response.status;
           throw error;
         }
+
+        this.logRepeatedApiError(
+          `api:${provider}:${usageEndpoint}:${response.status}:${response.statusText}`,
+          'error',
+          '[UsageMonitor] API error:',
+          {
+            status: response.status,
+            statusText: response.statusText,
+            provider,
+            endpoint: usageEndpoint
+          }
+        );
 
         // For other error statuses, try to parse response body to detect auth failures
         // This handles cases where providers might return different status codes for auth errors
@@ -2354,7 +2432,12 @@ export class UsageMonitor extends EventEmitter {
         throw error;
       }
 
-      console.error('[UsageMonitor] API fetch failed:', error);
+      this.logRepeatedApiError(
+        `fetch:${providerLogKey}:${usageEndpointLogKey}:${error?.message ?? String(error)}`,
+        'error',
+        '[UsageMonitor] API fetch failed:',
+        { error }
+      );
       // Record failure timestamp for cooldown retry (network/other errors)
       this.apiFailureTimestamps.set(profileId, Date.now());
       return null;

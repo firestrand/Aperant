@@ -178,6 +178,15 @@
     "fastMode": "Rapide",
     "severity": "sévérité",
     "pullRequest": "Pull Request",
+    "created": "Créée {{time}}",
+    "updated": "Mise à jour {{time}}",
+    "rationale": "Justification",
+    "scheduledTaskRationale": "Créée par la tâche planifiée : {{name}}",
+    "problemSolved": "Problème résolu",
+    "targetAudience": "Public cible",
+    "dependencies": "Dépendances",
+    "acceptanceCriteria": "Critères d'acceptation",
+    "affectedFiles": "Fichiers affectés",
     "showMore": "Afficher plus",
     "showLess": "Afficher moins"
   },
@@ -349,6 +358,23 @@
     "cancel": "Annuler",
     "deletePermanently": "Supprimer d\u00e9finitivement",
     "deleting": "Suppression..."
+  },
+  "attachments": {
+    "title": "Pièces jointes de tâche (facultatif)",
+    "description": "Joignez des fichiers texte, Markdown, code ou configuration pour ajouter du contexte à la tâche.",
+    "add": "Ajouter des fichiers",
+    "empty": "Aucune pièce jointe de tâche ajoutée.",
+    "removeAriaLabel": "Supprimer la pièce jointe {{filename}}",
+    "kinds": {
+      "text": "Texte",
+      "markdown": "Markdown",
+      "code": "Code",
+      "config": "Configuration"
+    },
+    "errors": {
+      "invalidType": "Type de pièce jointe non pris en charge. Autorisés : TXT, Markdown, TS, TSX, JS, JSX, JSON, YAML, TOML.",
+      "tooLarge": "La pièce jointe dépasse la limite de 512 Ko."
+    }
   },
   "referenceImages": {
     "title": "Images de référence (facultatif)",

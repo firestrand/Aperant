@@ -54,6 +54,95 @@
       "description": "Customize terminal font appearance"
     }
   },
+  "taskAttachments": {
+    "title": "Task attachments and previews",
+    "description": "Enable conservative non-image task attachments for text, Markdown, code, and config files.",
+    "safety": "SVG and HTML previews stay disabled until sandboxed sanitization is available.",
+    "toggle": "Enable task attachments"
+  },
+  "scheduledTasks": {
+    "title": "Scheduled recurring tasks",
+    "description": "Create recurring task templates that can fire normal Aperant tasks on a daily or weekly schedule.",
+    "toggle": "Enable scheduled recurring tasks",
+    "projectId": "Project ID",
+    "name": "Schedule name",
+    "prompt": "Task prompt",
+    "create": "Create schedule",
+    "save": "Save schedule",
+    "cancelEdit": "Cancel edit",
+    "editSchedule": "Edit {{name}}",
+    "errors": {
+      "disabled": "Scheduled tasks are disabled.",
+      "projectUnavailable": "Project is unavailable.",
+      "invalidTimeOfDay": "Time must be HH:mm in 24-hour format.",
+      "invalidDaysOfWeek": "Weekly recurrence requires weekdays from 0 to 6.",
+      "projectIdRequired": "Project ID is required.",
+      "nameRequired": "Schedule name is required.",
+      "promptRequired": "Task prompt is required.",
+      "notFound": "Scheduled task not found.",
+      "nextRunUnavailable": "Could not compute the next scheduled run.",
+      "taskCreationFailed": "Failed to create the scheduled task.",
+      "createdTaskUnavailable": "Created scheduled task could not be found."
+    },
+    "loading": "Loading schedules…",
+    "empty": "No schedules configured yet.",
+    "nextRun": "Next run",
+    "notScheduled": "Not scheduled",
+    "enableSchedule": "Enable {{name}}",
+    "loadError": "Failed to load scheduled tasks.",
+    "createError": "Failed to create scheduled task.",
+    "updateError": "Failed to update scheduled task.",
+    "deleteError": "Failed to delete scheduled task.",
+    "fireError": "Failed to fire scheduled task.",
+    "recurrence": "Recurrence",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "autoStart": "Auto-start when fired",
+    "autoStartOn": "Auto-start on",
+    "autoStartOff": "Auto-start off",
+    "toggleAutoStart": "Toggle auto-start for {{name}}",
+    "days": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    }
+  },
+  "skills": {
+    "title": "Skills",
+    "description": "Load reusable SKILL.md instruction packs for autonomous agents.",
+    "toggleGlobal": "Enable skills for agents",
+    "userDirectory": "User skills directory",
+    "count": "{{count}} skill configured",
+    "count_plural": "{{count}} skills configured",
+    "loading": "Loading...",
+    "reload": "Reload skills",
+    "empty": "No skills found. Add SKILL.md folders to the user skills directory or to .aperant/skills in a project.",
+    "surfaces": "Surfaces",
+    "surfaceLabels": {
+      "build": "Build",
+      "insights": "Insights",
+      "roadmap": "Roadmap",
+      "ideation": "Ideation",
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "terminal": "Terminal"
+    },
+    "toggleSkill": "Toggle {{name}}",
+    "loadError": "Failed to load skills.",
+    "loadFailedDescription": "This skill could not be loaded.",
+    "toggleError": "Failed to update skill state.",
+    "errors": {
+      "invalidId": "Skill ids must be kebab-case.",
+      "missingDescription": "Skill must include a description.",
+      "loadFailed": "Skill could not be loaded.",
+      "notFound": "Skill not found.",
+      "alreadyExists": "Skill already exists."
+    }
+  },
   "apiProfiles": {
     "title": "API Profiles",
     "description": "Configure custom Anthropic-compatible API endpoints",
@@ -301,13 +390,13 @@
     "detectedSummary": "Detected on your system:",
     "noToolsDetected": "No additional tools detected (VS Code and system terminal will be used)",
     "autoNameClaude": {
-      "label": "Auto-name Claude terminals",
-      "description": "Use AI to generate a descriptive name for Claude terminals based on your first message"
+      "label": "Auto-name AI terminals",
+      "description": "Use AI to generate a descriptive name for AI terminals based on your first message"
     },
     "yoloMode": {
       "label": "YOLO Mode",
-      "description": "Start Claude with --dangerously-skip-permissions flag, bypassing all safety prompts. Use with extreme caution.",
-      "warning": "This mode bypasses Claude's permission system. Only enable if you fully trust the code being executed."
+      "description": "Start supported AI CLIs with their permission-bypass mode enabled. Use with extreme caution.",
+      "warning": "This mode bypasses provider CLI permission prompts. Only enable if you fully trust the code being executed."
     }
   },
   "updates": {
@@ -1166,6 +1255,60 @@
       "textOnly": "Text-only (no tools)",
       "mcpCount": "{{count}} MCP"
     },
+    "catalog": {
+      "enableTitle": "MCP connector catalog",
+      "enableDescription": "Show verified connector templates that install into global custom MCP servers.",
+      "title": "Connector Catalog",
+      "description": "Install verified remote MCP connectors as reusable global server definitions.",
+      "empty": "No verified catalog entries are available yet.",
+      "install": "Install",
+      "installed": "Installed",
+      "requiresSetup": "Requires setup",
+      "filterLabel": "Filter by category",
+      "package": "Package",
+      "notApplicable": "N/A",
+      "requiredEnv": "Required environment",
+      "noRequiredEnv": "No required environment variables",
+      "categories": {
+        "all": "All categories",
+        "filesystem": "Filesystem",
+        "code-hosting": "Code hosting",
+        "monitoring": "Monitoring",
+        "database": "Database",
+        "search": "Search",
+        "browser": "Browser",
+        "utility": "Utility"
+      },
+      "transports": {
+        "stdio": "stdio bridge",
+        "http": "HTTP"
+      },
+      "maintenanceStatuses": {
+        "verified": "Verified",
+        "vendor-maintained": "Vendor maintained",
+        "deprecated": "Deprecated",
+        "unknown": "Unknown maintenance"
+      },
+      "licenses": {
+        "linear-remote": "MIT bridge; Linear hosted service vendor-managed",
+        "notion-remote": "MIT bridge; Notion hosted service vendor-managed",
+        "atlassian-rovo-remote": "MIT bridge; Atlassian hosted service vendor-managed"
+      },
+      "entries": {
+        "linear": {
+          "name": "Linear Remote MCP",
+          "description": "Official Linear remote MCP server bridged through mcp-remote."
+        },
+        "notion": {
+          "name": "Notion Remote MCP",
+          "description": "Official Notion remote MCP server bridged through mcp-remote."
+        },
+        "atlassianRovo": {
+          "name": "Atlassian Rovo Remote MCP",
+          "description": "Official Atlassian Rovo remote MCP server bridged through mcp-remote."
+        }
+      }
+    },
     "servers": {
       "context7": {
         "name": "Context7",
@@ -1217,6 +1360,10 @@
     "typeHttp": "HTTP",
     "serverName": "Name",
     "serverNamePlaceholder": "My MCP Server",
+    "generatedId": "ID: {{id}}",
+    "commandPlaceholder": "npx",
+    "argsPlaceholder": "-y @myorg/my-mcp-server",
+    "urlPlaceholder": "https://mcp.example.com/mcp",
     "serverDescription": "Description",
     "serverDescriptionPlaceholder": "What this server does",
     "command": "Command",

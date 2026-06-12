@@ -73,6 +73,7 @@ import type {
   TerminalProfileChangedEvent
 } from './agent';
 import type { AppSettings } from './settings';
+import type { CreateScheduledTaskInput, ScheduledTaskDefinition, UpdateScheduledTaskInput } from './scheduled-task';
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent, AppUpdateErrorEvent } from './app-update';
 import type {
   ChangelogTask,
@@ -140,6 +141,7 @@ import type {
 } from './integrations';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
 import type { ProviderAccount } from './provider-account';
+import type { CreateSkillInput, LoadedSkill, SkillToggleResult } from './skill';
 
 // ============================================
 // Branch Types
@@ -372,6 +374,19 @@ export interface ElectronAPI {
   // App settings
   getSettings: () => Promise<IPCResult<AppSettings>>;
   saveSettings: (settings: Partial<AppSettings>) => Promise<IPCResult>;
+
+  // Skills
+  listSkills: (projectDir?: string) => Promise<IPCResult<LoadedSkill[]>>;
+  createSkill: (input: CreateSkillInput) => Promise<IPCResult<LoadedSkill>>;
+  setSkillEnabled: (skillId: string, enabled: boolean, projectDir?: string) => Promise<IPCResult<SkillToggleResult>>;
+  getUserSkillsDirectory: () => Promise<IPCResult<string>>;
+
+  // Scheduled recurring tasks
+  listScheduledTasks: () => Promise<IPCResult<ScheduledTaskDefinition[]>>;
+  createScheduledTask: (input: CreateScheduledTaskInput) => Promise<IPCResult<ScheduledTaskDefinition>>;
+  updateScheduledTask: (scheduleId: string, input: UpdateScheduledTaskInput) => Promise<IPCResult<ScheduledTaskDefinition>>;
+  deleteScheduledTask: (scheduleId: string) => Promise<IPCResult<void>>;
+  fireScheduledTaskNow: (scheduleId: string) => Promise<IPCResult<ScheduledTaskDefinition>>;
 
   // Spell check
   setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;

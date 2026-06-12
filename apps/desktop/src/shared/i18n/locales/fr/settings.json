@@ -54,6 +54,95 @@
       "description": "Personnaliser l'apparence des polices de terminal"
     }
   },
+  "taskAttachments": {
+    "title": "Pièces jointes et aperçus de tâches",
+    "description": "Active des pièces jointes non-image prudentes pour les fichiers texte, Markdown, code et configuration.",
+    "safety": "Les aperçus SVG et HTML restent désactivés jusqu'à disponibilité d'une sanitation en bac à sable.",
+    "toggle": "Activer les pièces jointes de tâches"
+  },
+  "scheduledTasks": {
+    "title": "Tâches récurrentes planifiées",
+    "description": "Créez des modèles de tâches récurrentes qui déclenchent des tâches Aperant normales selon un horaire quotidien ou hebdomadaire.",
+    "toggle": "Activer les tâches récurrentes planifiées",
+    "projectId": "ID du projet",
+    "name": "Nom de la planification",
+    "prompt": "Prompt de tâche",
+    "create": "Créer la planification",
+    "save": "Enregistrer la planification",
+    "cancelEdit": "Annuler la modification",
+    "editSchedule": "Modifier {{name}}",
+    "errors": {
+      "disabled": "Les tâches planifiées sont désactivées.",
+      "projectUnavailable": "Le projet est indisponible.",
+      "invalidTimeOfDay": "L'heure doit être au format HH:mm sur 24 heures.",
+      "invalidDaysOfWeek": "La récurrence hebdomadaire exige des jours de semaine de 0 à 6.",
+      "projectIdRequired": "L'ID du projet est requis.",
+      "nameRequired": "Le nom de la planification est requis.",
+      "promptRequired": "Le prompt de tâche est requis.",
+      "notFound": "Tâche planifiée introuvable.",
+      "nextRunUnavailable": "Impossible de calculer la prochaine exécution planifiée.",
+      "taskCreationFailed": "Échec de la création de la tâche planifiée.",
+      "createdTaskUnavailable": "La tâche planifiée créée est introuvable."
+    },
+    "loading": "Chargement des planifications…",
+    "empty": "Aucune planification configurée.",
+    "nextRun": "Prochaine exécution",
+    "notScheduled": "Non planifiée",
+    "enableSchedule": "Activer {{name}}",
+    "loadError": "Échec du chargement des tâches planifiées.",
+    "createError": "Échec de la création de la tâche planifiée.",
+    "updateError": "Échec de la mise à jour de la tâche planifiée.",
+    "deleteError": "Échec de la suppression de la tâche planifiée.",
+    "fireError": "Échec du déclenchement de la tâche planifiée.",
+    "recurrence": "Récurrence",
+    "daily": "Quotidienne",
+    "weekly": "Hebdomadaire",
+    "autoStart": "Démarrer automatiquement au déclenchement",
+    "autoStartOn": "Démarrage auto activé",
+    "autoStartOff": "Démarrage auto désactivé",
+    "toggleAutoStart": "Basculer le démarrage auto pour {{name}}",
+    "days": {
+      "0": "Dim",
+      "1": "Lun",
+      "2": "Mar",
+      "3": "Mer",
+      "4": "Jeu",
+      "5": "Ven",
+      "6": "Sam"
+    }
+  },
+  "skills": {
+    "title": "Skills",
+    "description": "Charge des packs d'instructions SKILL.md réutilisables pour les agents autonomes.",
+    "toggleGlobal": "Activer les skills pour les agents",
+    "userDirectory": "Dossier des skills utilisateur",
+    "count": "{{count}} skill configuré",
+    "count_plural": "{{count}} skills configurés",
+    "loading": "Chargement...",
+    "reload": "Recharger les skills",
+    "empty": "Aucun skill trouvé. Ajoutez des dossiers SKILL.md dans le dossier des skills utilisateur ou dans .aperant/skills d'un projet.",
+    "surfaces": "Surfaces",
+    "surfaceLabels": {
+      "build": "Build",
+      "insights": "Insights",
+      "roadmap": "Roadmap",
+      "ideation": "Idéation",
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "terminal": "Terminal"
+    },
+    "toggleSkill": "Basculer {{name}}",
+    "loadError": "Impossible de charger les skills.",
+    "loadFailedDescription": "Ce skill n'a pas pu être chargé.",
+    "toggleError": "Impossible de mettre à jour l'état du skill.",
+    "errors": {
+      "invalidId": "Les identifiants de skill doivent être en kebab-case.",
+      "missingDescription": "Le skill doit inclure une description.",
+      "loadFailed": "Impossible de charger le skill.",
+      "notFound": "Skill introuvable.",
+      "alreadyExists": "Le skill existe déjà."
+    }
+  },
   "apiProfiles": {
     "title": "Profils API",
     "description": "Configurez des endpoints API compatibles Anthropic personnalisés",
@@ -301,13 +390,13 @@
     "detectedSummary": "Détecté sur votre système :",
     "noToolsDetected": "Aucun outil supplémentaire détecté (VS Code et le terminal système seront utilisés)",
     "autoNameClaude": {
-      "label": "Nommer automatiquement les terminaux Claude",
-      "description": "Utiliser l'IA pour générer un nom descriptif pour les terminaux Claude basé sur votre premier message"
+      "label": "Nommer automatiquement les terminaux IA",
+      "description": "Utiliser l'IA pour générer un nom descriptif pour les terminaux IA basé sur votre premier message"
     },
     "yoloMode": {
       "label": "Mode YOLO",
-      "description": "Démarrer Claude avec le flag --dangerously-skip-permissions, contournant toutes les invites de sécurité. À utiliser avec une extrême prudence.",
-      "warning": "Ce mode contourne le système de permissions de Claude. N'activez que si vous faites entièrement confiance au code exécuté."
+      "description": "Démarrer les CLI IA pris en charge avec leur mode de contournement des permissions activé. À utiliser avec une extrême prudence.",
+      "warning": "Ce mode contourne les invites de permission du CLI fournisseur. N'activez que si vous faites entièrement confiance au code exécuté."
     }
   },
   "updates": {
@@ -1166,6 +1255,60 @@
       "textOnly": "Texte uniquement (sans outils)",
       "mcpCount": "{{count}} MCP"
     },
+    "catalog": {
+      "enableTitle": "Catalogue de connecteurs MCP",
+      "enableDescription": "Affiche des modèles de connecteurs vérifiés installés comme serveurs MCP personnalisés globaux.",
+      "title": "Catalogue de connecteurs",
+      "description": "Installe des connecteurs MCP distants vérifiés comme définitions de serveurs globaux réutilisables.",
+      "empty": "Aucune entrée de catalogue vérifiée n'est encore disponible.",
+      "install": "Installer",
+      "installed": "Installé",
+      "requiresSetup": "Configuration requise",
+      "filterLabel": "Filtrer par catégorie",
+      "package": "Paquet",
+      "notApplicable": "N/A",
+      "requiredEnv": "Environnement requis",
+      "noRequiredEnv": "Aucune variable d'environnement requise",
+      "categories": {
+        "all": "Toutes les catégories",
+        "filesystem": "Système de fichiers",
+        "code-hosting": "Hébergement de code",
+        "monitoring": "Surveillance",
+        "database": "Base de données",
+        "search": "Recherche",
+        "browser": "Navigateur",
+        "utility": "Utilitaire"
+      },
+      "transports": {
+        "stdio": "pont stdio",
+        "http": "HTTP"
+      },
+      "maintenanceStatuses": {
+        "verified": "Vérifié",
+        "vendor-maintained": "Maintenu par le fournisseur",
+        "deprecated": "Déprécié",
+        "unknown": "Maintenance inconnue"
+      },
+      "licenses": {
+        "linear-remote": "Pont MIT ; service hébergé Linear géré par le fournisseur",
+        "notion-remote": "Pont MIT ; service hébergé Notion géré par le fournisseur",
+        "atlassian-rovo-remote": "Pont MIT ; service hébergé Atlassian géré par le fournisseur"
+      },
+      "entries": {
+        "linear": {
+          "name": "MCP distant Linear",
+          "description": "Serveur MCP distant officiel de Linear via mcp-remote."
+        },
+        "notion": {
+          "name": "MCP distant Notion",
+          "description": "Serveur MCP distant officiel de Notion via mcp-remote."
+        },
+        "atlassianRovo": {
+          "name": "MCP distant Atlassian Rovo",
+          "description": "Serveur MCP distant officiel d'Atlassian Rovo via mcp-remote."
+        }
+      }
+    },
     "servers": {
       "context7": {
         "name": "Context7",
@@ -1217,6 +1360,10 @@
     "typeHttp": "HTTP",
     "serverName": "Nom",
     "serverNamePlaceholder": "Mon serveur MCP",
+    "generatedId": "ID : {{id}}",
+    "commandPlaceholder": "npx",
+    "argsPlaceholder": "-y @myorg/my-mcp-server",
+    "urlPlaceholder": "https://mcp.example.com/mcp",
     "serverDescription": "Description",
     "serverDescriptionPlaceholder": "Ce que fait ce serveur",
     "command": "Commande",

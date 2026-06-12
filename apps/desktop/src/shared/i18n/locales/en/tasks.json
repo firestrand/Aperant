@@ -178,6 +178,15 @@
     "fastMode": "Fast",
     "severity": "severity",
     "pullRequest": "Pull Request",
+    "created": "Created {{time}}",
+    "updated": "Updated {{time}}",
+    "rationale": "Rationale",
+    "scheduledTaskRationale": "Created by scheduled task: {{name}}",
+    "problemSolved": "Problem Solved",
+    "targetAudience": "Target Audience",
+    "dependencies": "Dependencies",
+    "acceptanceCriteria": "Acceptance Criteria",
+    "affectedFiles": "Affected Files",
     "showMore": "Show more",
     "showLess": "Show less"
   },
@@ -349,6 +358,23 @@
     "cancel": "Cancel",
     "deletePermanently": "Delete Permanently",
     "deleting": "Deleting..."
+  },
+  "attachments": {
+    "title": "Task Attachments (optional)",
+    "description": "Attach text, Markdown, code, or config files for additional task context.",
+    "add": "Add Files",
+    "empty": "No task attachments added.",
+    "removeAriaLabel": "Remove attachment {{filename}}",
+    "kinds": {
+      "text": "Text",
+      "markdown": "Markdown",
+      "code": "Code",
+      "config": "Config"
+    },
+    "errors": {
+      "invalidType": "Unsupported attachment type. Allowed: TXT, Markdown, TS, TSX, JS, JSX, JSON, YAML, TOML.",
+      "tooLarge": "Attachment exceeds the 512 KB limit."
+    }
   },
   "referenceImages": {
     "title": "Reference Images (optional)",

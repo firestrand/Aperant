@@ -122,6 +122,7 @@ describe('AgentManager phase auth parity', () => {
     await manager.startTaskExecution('task-1', projectPath, 'spec-1', { useWorktree: false }, 'project-1');
 
     expect(capturedExecutorConfig?.session.agentType).toBe('build_orchestrator');
+    expect(capturedExecutorConfig?.session.skillInstructions).toBeNull();
     expect(capturedExecutorConfig?.session.phaseAuth).toMatchObject({
       planning: {
         provider: 'openai',

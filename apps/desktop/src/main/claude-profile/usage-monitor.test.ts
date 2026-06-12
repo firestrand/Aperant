@@ -9,6 +9,10 @@ import { detectProvider, getUsageEndpoint, UsageMonitor, getUsageMonitor } from 
 import type { ApiProvider } from './usage-monitor';
 import { hasHardcodedText } from '../../shared/utils/format-time';
 
+const claudeProfileMockState = vi.hoisted(() => ({
+  profiles: [] as Array<{ id: string; name: string; configDir?: string }>,
+}));
+
 // Mock getClaudeProfileManager
 vi.mock('../claude-profile-manager', () => ({
   getClaudeProfileManager: vi.fn(() => ({
@@ -36,7 +40,8 @@ vi.mock('../claude-profile-manager', () => ({
       { id: 'profile-3', name: 'Profile 3' }
     ]),
     setActiveProfile: vi.fn(),
-    getProfileToken: vi.fn(() => 'mock-decrypted-token')
+    getProfileToken: vi.fn(() => 'mock-decrypted-token'),
+    getSettings: vi.fn(() => ({ profiles: claudeProfileMockState.profiles }))
   }))
 }));
 
@@ -102,6 +107,7 @@ global.fetch = vi.fn(() =>
 describe('usage-monitor', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    claudeProfileMockState.profiles = [];
     vi.useFakeTimers();
 
     // Restore default fetch mock after clearAllMocks
@@ -1443,6 +1449,8 @@ describe('usage-monitor', () => {
       // Clear any existing failure timestamps before each test
       const monitor = getUsageMonitor();
       monitor['apiFailureTimestamps'].clear();
+      monitor['rateLimitedProfiles'].clear();
+      monitor['apiErrorLogCounts'].clear();
     });
 
     it('should record API failure timestamp on error', async () => {
@@ -1540,6 +1548,120 @@ describe('usage-monitor', () => {
       expect(monitor['shouldUseApiMethod'](profile1)).toBe(false);
       // Profile 2 should be allowed
       expect(monitor['shouldUseApiMethod'](profile2)).toBe(true);
+    });
+
+    it('should use Retry-After seconds for 429 profile-family cooldowns', async () => {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      claudeProfileMockState.profiles = [
+        { id: 'profile-a', name: 'Profile A', configDir: '/tmp/shared-claude' },
+        { id: 'profile-b', name: 'Profile B', configDir: '/tmp/shared-claude' },
+        { id: 'profile-c', name: 'Profile C', configDir: '/tmp/other-claude' },
+      ];
+
+      const mockFetch = vi.mocked(global.fetch);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: { get: vi.fn((name: string) => name.toLowerCase() === 'retry-after' ? '120' : null) },
+        json: async () => ({ error: 'rate limited' })
+      } as unknown as Response);
+
+      const monitor = getUsageMonitor();
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await monitor['fetchUsageViaAPI']('valid-token', 'profile-a', 'Profile A', undefined);
+
+      expect(monitor['shouldUseApiMethod']('profile-a')).toBe(false);
+      expect(monitor['shouldUseApiMethod']('profile-b')).toBe(false);
+      expect(monitor['shouldUseApiMethod']('profile-c')).toBe(true);
+
+      vi.advanceTimersByTime(120_000);
+
+      expect(monitor['shouldUseApiMethod']('profile-a')).toBe(true);
+      expect(monitor['shouldUseApiMethod']('profile-b')).toBe(true);
+
+      warnSpy.mockRestore();
+    });
+
+    it('should use Retry-After HTTP-date for 429 cooldown duration', async () => {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const retryAt = 'Thu, 01 Jan 2026 00:05:00 GMT';
+      const mockFetch = vi.mocked(global.fetch);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: { get: vi.fn((name: string) => name.toLowerCase() === 'retry-after' ? retryAt : null) },
+        json: async () => ({ error: 'rate limited' })
+      } as unknown as Response);
+
+      const monitor = getUsageMonitor();
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await monitor['fetchUsageViaAPI']('valid-token', 'profile-date', 'Profile Date', undefined);
+
+      expect(monitor['shouldUseApiMethod']('profile-date')).toBe(false);
+      vi.advanceTimersByTime(299_000);
+      expect(monitor['shouldUseApiMethod']('profile-date')).toBe(false);
+      vi.advanceTimersByTime(1_000);
+      expect(monitor['shouldUseApiMethod']('profile-date')).toBe(true);
+
+      warnSpy.mockRestore();
+    });
+
+    it('should fall back to default 429 cooldown when Retry-After is invalid', async () => {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const mockFetch = vi.mocked(global.fetch);
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        headers: { get: vi.fn((name: string) => name.toLowerCase() === 'retry-after' ? 'not-a-date' : null) },
+        json: async () => ({ error: 'rate limited' })
+      } as unknown as Response);
+
+      const monitor = getUsageMonitor();
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await monitor['fetchUsageViaAPI']('valid-token', 'profile-default', 'Profile Default', undefined);
+
+      expect(monitor['shouldUseApiMethod']('profile-default')).toBe(false);
+      vi.advanceTimersByTime(UsageMonitor['RATE_LIMIT_COOLDOWN_MS'] - 1);
+      expect(monitor['shouldUseApiMethod']('profile-default')).toBe(false);
+      vi.advanceTimersByTime(1);
+      expect(monitor['shouldUseApiMethod']('profile-default')).toBe(true);
+
+      warnSpy.mockRestore();
+    });
+
+    it('should collapse repeated identical API error logs with a suppressed count', async () => {
+      const mockFetch = vi.mocked(global.fetch);
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        headers: { get: vi.fn(() => null) },
+        json: async () => ({ error: 'Server error' })
+      } as unknown as Response);
+
+      const monitor = getUsageMonitor();
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await monitor['fetchUsageViaAPI']('valid-token', 'profile-log', 'Profile Log', undefined);
+      await monitor['fetchUsageViaAPI']('valid-token', 'profile-log', 'Profile Log', undefined);
+      await monitor['fetchUsageViaAPI']('valid-token', 'profile-log', 'Profile Log', undefined);
+
+      expect(errorSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[UsageMonitor] Suppressing repeated API error logs:',
+        expect.objectContaining({ suppressedCount: 1 })
+      );
+      expect(monitor['apiErrorLogCounts'].get('api:anthropic:https://api.anthropic.com/api/oauth/usage:500:Internal Server Error')).toBe(3);
+
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
     });
   });
 

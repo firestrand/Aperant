@@ -86,7 +86,7 @@ export function McpSettingsPanel({
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{server.name}</span>
+                      <span className="text-sm font-medium">{t(server.name)}</span>
                       {health?.responseTime && (
                         <span className="text-[10px] text-muted-foreground">{health.responseTime}ms</span>
                       )}

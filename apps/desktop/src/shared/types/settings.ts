@@ -348,6 +348,14 @@ export interface AppSettings {
   globalMcpServers?: CustomMcpServer[];
   // Built-in MCP defaults applied unless a project explicitly overrides them.
   globalMcpDefaults?: GlobalMcpDefaults;
+  // Show the verified MCP connector catalog in global MCP settings. Default off.
+  mcpConnectorCatalogEnabled?: boolean;
+  // Global skill instruction packs injected into approved agent surfaces.
+  skillsEnabled?: boolean;
+  // Scheduled recurring tasks UI/runtime. Default off and bypassed when undefined.
+  scheduledTasksEnabled?: boolean;
+  // Non-image task attachments and artifact previews. Default off and bypassed when undefined.
+  taskAttachmentsEnabled?: boolean;
   customMixedProfileActive?: boolean;
   customMixedPhaseConfig?: MixedPhaseConfig;
   customMixedFeatureConfig?: MixedFeatureConfig;
@@ -381,5 +389,4 @@ export interface AppSettings {
 
 // GPU acceleration mode for terminal WebGL rendering
 export type GpuAcceleration = 'auto' | 'on' | 'off';
-
 

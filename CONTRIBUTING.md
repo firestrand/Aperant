@@ -2,6 +2,12 @@
 
 Thank you for your interest in contributing to Aperant! This document provides guidelines and instructions for contributing to the project.
 
+## Project Lineage
+
+Aperant began from the Auto Claude codebase, but it is now maintained as a long-lived independent fork with its own product direction and architecture. Contributions should target Aperant's current `apps/desktop` TypeScript/Electron codebase and Vercel AI SDK v6 agent runtime rather than attempting direct merges from the starting project or older forks.
+
+Some recent improvements were selectively ported from another Auto Claude-derived fork. Those ports are treated as Aperant-native features: they must preserve default-off rollout paths, English/French i18n, cross-platform behavior, and the existing security model. See [guides/selected-fork-features-characterization.md](guides/selected-fork-features-characterization.md) and the related guide artifacts for the adoption record.
+
 ## How to Contribute
 
 | What you want to do | Where to start |
@@ -25,6 +31,7 @@ AI-assisted PRs go through the same review process as any other contribution. Tr
 
 ## Table of Contents
 
+- [Project Lineage](#project-lineage)
 - [How to Contribute](#how-to-contribute)
 - [AI-Assisted Contributions](#ai-assisted-contributions)
 - [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)

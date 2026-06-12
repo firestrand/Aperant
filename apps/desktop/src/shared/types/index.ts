@@ -14,6 +14,8 @@ export * from './agent';
 export * from './profile';
 export * from './unified-account';
 export * from './settings';
+export * from './skill';
+export * from './scheduled-task';
 export * from './changelog';
 export * from './insights';
 export * from './roadmap';

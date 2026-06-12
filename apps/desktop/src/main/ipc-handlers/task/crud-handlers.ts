@@ -16,6 +16,9 @@ import { getToolPath } from '../../cli-tool-manager';
 import { getIsolatedGitEnv } from '../../utils/git-isolation';
 import { taskStateManager } from '../../task-state-manager';
 import { safeBreadcrumb } from '../../sentry';
+import { isAllowedTaskImageMimeType } from './attachment-validation';
+import { processTaskAttachments } from './attachment-processing';
+import { readSettingsFile } from '../../settings-utils';
 
 /**
  * Sanitize thinking levels in task metadata in-place.
@@ -220,15 +223,12 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         mkdirSync(attachmentsDir, { recursive: true });
         const resolvedAttachmentsDir = path.resolve(attachmentsDir);
 
-        // MIME type allowlist (defense in depth - frontend also validates)
-        const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
-
         const savedImages: typeof taskMetadata.attachedImages = [];
 
         for (const image of taskMetadata.attachedImages) {
           if (image.data) {
             // Validate MIME type
-            if (!image.mimeType || !ALLOWED_MIME_TYPES.includes(image.mimeType)) {
+            if (!isAllowedTaskImageMimeType(image.mimeType)) {
               console.warn(`[TASK_CREATE] Skipping image with missing or disallowed MIME type: ${image.mimeType}`);
               continue;
             }
@@ -272,6 +272,13 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         taskMetadata.attachedImages = savedImages;
       }
 
+      const appSettings = readSettingsFile();
+      taskMetadata.attachments = processTaskAttachments(
+        taskMetadata.attachments,
+        specDir,
+        appSettings?.taskAttachmentsEnabled === true
+      );
+
       // Create initial implementation_plan.json (task is created but not started)
       const now = new Date().toISOString();
       const implementationPlan = {
@@ -306,6 +313,15 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           filename: img.filename,
           path: img.path,
           description: '' // User can add descriptions later
+        }));
+      }
+
+      if (taskMetadata.attachments && taskMetadata.attachments.length > 0) {
+        requirements.attachments = taskMetadata.attachments.map(attachment => ({
+          filename: attachment.filename,
+          path: attachment.path,
+          kind: attachment.kind,
+          description: ''
         }));
       }
 
@@ -541,16 +557,13 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
             mkdirSync(attachmentsDir, { recursive: true });
             const resolvedAttachmentsDir = path.resolve(attachmentsDir);
 
-            // MIME type allowlist (defense in depth - frontend also validates)
-            const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
-
             const savedImages: typeof updates.metadata.attachedImages = [];
 
             for (const image of updates.metadata.attachedImages) {
               // If image has data (new image), save it
               if (image.data) {
                 // Validate MIME type
-                if (!image.mimeType || !ALLOWED_MIME_TYPES.includes(image.mimeType)) {
+                if (!isAllowedTaskImageMimeType(image.mimeType)) {
                   console.warn(`[TASK_UPDATE] Skipping image with missing or disallowed MIME type: ${image.mimeType}`);
                   continue;
                 }
@@ -593,6 +606,15 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
             updatedMetadata.attachedImages = savedImages;
           }
 
+          if (updates.metadata.attachments !== undefined) {
+            const appSettings = readSettingsFile();
+            updatedMetadata.attachments = processTaskAttachments(
+              updates.metadata.attachments,
+              specDir,
+              appSettings?.taskAttachmentsEnabled === true
+            );
+          }
+
           // Sanitize thinking levels and update task_metadata.json
           sanitizeThinkingLevels(updatedMetadata);
           const metadataPath = path.join(specDir, 'task_metadata.json');
@@ -613,6 +635,14 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
             }
             if (updates.metadata.category) {
               requirements.workflow_type = updates.metadata.category;
+            }
+            if (updates.metadata.attachments !== undefined) {
+              requirements.attachments = (updatedMetadata.attachments ?? []).map(attachment => ({
+                filename: attachment.filename,
+                path: attachment.path,
+                kind: attachment.kind,
+                description: ''
+              }));
             }
 
             writeFileSync(requirementsPath, JSON.stringify(requirements, null, 2), 'utf-8');

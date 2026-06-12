@@ -32,10 +32,11 @@ import { Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
+import { TaskAttachmentsInput } from './task-form/TaskAttachmentsInput';
 import { type FileReferenceData } from './task-form/useImageUpload';
 import { persistUpdateTask } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
-import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
+import type { Task, ImageAttachment, TaskAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
 import {
   DEFAULT_AGENT_PROFILES,
   DEFAULT_PHASE_MODELS,
@@ -67,6 +68,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   // Get selected agent profile from settings for defaults
   const { settings } = useSettingsStore();
   const { isAnthropic, provider: activeProvider } = useActiveProvider();
+  const taskAttachmentsEnabled = settings.taskAttachmentsEnabled === true;
 
   // Resolve per-provider settings (same chain as AgentProfileSettings)
   const providerConfig = activeProvider ? settings.providerAgentConfig?.[activeProvider] : undefined;
@@ -124,8 +126,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     task.metadata?.phaseThinking || profilePhaseThinking
   );
 
-  // Image attachments
+  // Attachments
   const [images, setImages] = useState<ImageAttachment[]>(task.metadata?.attachedImages || []);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>(task.metadata?.attachments || []);
 
   // Review setting
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(
@@ -184,6 +187,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       }
 
       setImages(task.metadata?.attachedImages || []);
+      setAttachments(task.metadata?.attachments || []);
       setRequireReviewBeforeCoding(task.metadata?.requireReviewBeforeCoding ?? false);
       setFastMode(task.metadata?.fastMode ?? false);
       setError(null);
@@ -232,6 +236,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
       fastMode !== (task.metadata?.fastMode ?? false) ||
       JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []) ||
+      JSON.stringify(attachments) !== JSON.stringify(task.metadata?.attachments || []) ||
       JSON.stringify(phaseModels) !== JSON.stringify(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS) ||
       JSON.stringify(phaseThinking) !== JSON.stringify(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
 
@@ -257,8 +262,11 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       metadataUpdates.phaseModels = phaseModels;
       metadataUpdates.phaseThinking = phaseThinking;
     }
-    // Always set attachedImages to persist removal when all images are deleted
+    // Always set attachedImages/attachments to persist removal when all items are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
+    if (taskAttachmentsEnabled) {
+      metadataUpdates.attachments = attachments.length > 0 ? attachments : [];
+    }
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
     metadataUpdates.fastMode = fastMode;
 
@@ -305,50 +313,60 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         </div>
       }
     >
-      <TaskFormFields
-        projectPath={projectPath}
-        specId={task.specId}
-        description={description}
-        onDescriptionChange={setDescription}
-        title={title}
-        onTitleChange={setTitle}
-        profileId={profileId}
-        model={model}
-        thinkingLevel={thinkingLevel}
-        phaseModels={phaseModels}
-        phaseThinking={phaseThinking}
-        onProfileChange={(newProfileId, newModel, newThinkingLevel) => {
-          setProfileId(newProfileId);
-          setModel(newModel);
-          setThinkingLevel(newThinkingLevel);
-        }}
-        onModelChange={setModel}
-        onThinkingLevelChange={setThinkingLevel}
-        onPhaseModelsChange={setPhaseModels}
-        onPhaseThinkingChange={setPhaseThinking}
-        category={category}
-        priority={priority}
-        complexity={complexity}
-        impact={impact}
-        onCategoryChange={setCategory}
-        onPriorityChange={setPriority}
-        onComplexityChange={setComplexity}
-        onImpactChange={setImpact}
-        showClassification={showClassification}
-        onShowClassificationChange={setShowClassification}
-        images={images}
-        onImagesChange={setImages}
-        requireReviewBeforeCoding={requireReviewBeforeCoding}
-        onRequireReviewChange={setRequireReviewBeforeCoding}
-        fastMode={fastMode}
-        onFastModeChange={setFastMode}
-        showFastModeToggle={showFastModeToggle && isFastModeEditable}
-        disabled={isSaving}
-        error={error}
-        onError={setError}
-        onFileReferenceDrop={handleFileReferenceDrop}
-        idPrefix="edit"
-      />
+      <div className="space-y-6">
+        <TaskFormFields
+          projectPath={projectPath}
+          specId={task.specId}
+          description={description}
+          onDescriptionChange={setDescription}
+          title={title}
+          onTitleChange={setTitle}
+          profileId={profileId}
+          model={model}
+          thinkingLevel={thinkingLevel}
+          phaseModels={phaseModels}
+          phaseThinking={phaseThinking}
+          onProfileChange={(newProfileId, newModel, newThinkingLevel) => {
+            setProfileId(newProfileId);
+            setModel(newModel);
+            setThinkingLevel(newThinkingLevel);
+          }}
+          onModelChange={setModel}
+          onThinkingLevelChange={setThinkingLevel}
+          onPhaseModelsChange={setPhaseModels}
+          onPhaseThinkingChange={setPhaseThinking}
+          category={category}
+          priority={priority}
+          complexity={complexity}
+          impact={impact}
+          onCategoryChange={setCategory}
+          onPriorityChange={setPriority}
+          onComplexityChange={setComplexity}
+          onImpactChange={setImpact}
+          showClassification={showClassification}
+          onShowClassificationChange={setShowClassification}
+          images={images}
+          onImagesChange={setImages}
+          requireReviewBeforeCoding={requireReviewBeforeCoding}
+          onRequireReviewChange={setRequireReviewBeforeCoding}
+          fastMode={fastMode}
+          onFastModeChange={setFastMode}
+          showFastModeToggle={showFastModeToggle && isFastModeEditable}
+          disabled={isSaving}
+          error={error}
+          onError={setError}
+          onFileReferenceDrop={handleFileReferenceDrop}
+          idPrefix="edit"
+        />
+
+        {taskAttachmentsEnabled && (
+          <TaskAttachmentsInput
+            attachments={attachments}
+            onAttachmentsChange={setAttachments}
+            disabled={isSaving}
+          />
+        )}
+      </div>
     </TaskModalLayout>
   );
 }

@@ -153,6 +153,19 @@ export const IPC_CHANNELS = {
   SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
   SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS: 'settings:claudeCode:getOnboardingStatus',  // Check hasCompletedOnboarding from ~/.claude.json
 
+  // Skills
+  SKILLS_LIST: 'skills:list',
+  SKILLS_CREATE: 'skills:create',
+  SKILLS_SET_ENABLED: 'skills:setEnabled',
+  SKILLS_GET_USER_DIR: 'skills:getUserDir',
+
+  // Scheduled recurring tasks
+  SCHEDULED_TASKS_LIST: 'scheduledTasks:list',
+  SCHEDULED_TASKS_CREATE: 'scheduledTasks:create',
+  SCHEDULED_TASKS_UPDATE: 'scheduledTasks:update',
+  SCHEDULED_TASKS_DELETE: 'scheduledTasks:delete',
+  SCHEDULED_TASKS_FIRE_NOW: 'scheduledTasks:fireNow',
+
   // API Profile management (custom Anthropic-compatible endpoints)
   PROFILES_GET: 'profiles:get',
   PROFILES_SAVE: 'profiles:save',

@@ -25,6 +25,7 @@ import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolati
 import { cancelFallbackTimer } from '../agent-events-handlers';
 import { readSettingsFile } from '../../settings-utils';
 import type { ProviderAccount } from '../../../shared/types/provider-account';
+import { isAllowedTaskImageMimeType } from './attachment-validation';
 
 /**
  * Check if any provider account is configured (API key or OAuth).
@@ -507,8 +508,7 @@ export function registerTaskExecutionHandlers(
                 }
                 // Server-side MIME type validation (defense in depth - frontend also validates)
                 // Reject missing mimeType to prevent bypass attacks
-                const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'];
-                if (!image.mimeType || !ALLOWED_MIME_TYPES.includes(image.mimeType)) {
+                if (!isAllowedTaskImageMimeType(image.mimeType)) {
                   console.warn('[TASK_REVIEW] Skipping image with missing or disallowed MIME type:', image.mimeType);
                   continue;
                 }

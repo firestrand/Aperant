@@ -20,7 +20,11 @@ import path from 'path';
 import { randomBytes } from 'crypto';
 
 /** Error codes for transient filesystem errors that are safe to retry */
-const TRANSIENT_ERROR_CODES = ['EBUSY', 'EACCES', 'EAGAIN', 'EPERM', 'EMFILE', 'ENFILE'] as const;
+export const TRANSIENT_ERROR_CODES = ['EBUSY', 'EACCES', 'EAGAIN', 'EPERM', 'EMFILE', 'ENFILE'] as const;
+
+export function isTransientFileSystemError(error: NodeJS.ErrnoException): boolean {
+  return Boolean(error.code && (TRANSIENT_ERROR_CODES as readonly string[]).includes(error.code));
+}
 
 export class AtomicFileError extends Error {
   constructor(message: string) {
@@ -114,6 +118,71 @@ export function writeFileAtomicSync(
   }
 }
 
+export type AtomicSyncWriteResult = {
+  /** True when the temp-file + rename path succeeded; false when direct-write fallback was used. */
+  atomic: boolean;
+};
+
+function sleepSync(ms: number): void {
+  if (ms <= 0) {
+    return;
+  }
+
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/**
+ * Synchronous atomic write with retry logic and a last-resort direct-write fallback.
+ *
+ * This helper is intentionally separate from writeFileAtomicSync so existing callers
+ * keep their current behavior until each persistence path is reviewed and covered.
+ */
+export function writeFileAtomicSyncWithRetry(
+  filepath: string,
+  data: string | Buffer,
+  options?: {
+    encoding?: BufferEncoding;
+    maxRetries?: number;
+    retryDelay?: number;
+  }
+): AtomicSyncWriteResult {
+  const maxRetries = options?.maxRetries ?? 3;
+  const retryDelay = options?.retryDelay ?? 100;
+  const encoding = options?.encoding ?? 'utf-8';
+  let lastError: NodeJS.ErrnoException | undefined;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      writeFileAtomicSync(filepath, data, encoding);
+      return { atomic: true };
+    } catch (error) {
+      const nodeError = error as NodeJS.ErrnoException;
+      lastError = nodeError;
+
+      if (!isTransientFileSystemError(nodeError)) {
+        throw new AtomicFileError(
+          `Failed to write file ${filepath} after ${attempt + 1} attempts: ${nodeError.message}`
+        );
+      }
+
+      if (attempt < maxRetries) {
+        sleepSync(retryDelay * 2 ** attempt);
+      }
+    }
+  }
+
+  try {
+    writeFileSync(path.resolve(filepath), data, encoding);
+    return { atomic: false };
+  } catch (fallbackError) {
+    const nodeError = fallbackError as NodeJS.ErrnoException;
+    const retryMessage = lastError ? ` Last atomic error: ${lastError.message}.` : '';
+    throw new AtomicFileError(
+      `Failed to write file ${filepath} with atomic retry and direct fallback: ${nodeError.message}.${retryMessage}`
+    );
+  }
+}
+
 /**
  * Write data to file atomically with retry logic.
  *
@@ -155,10 +224,7 @@ export async function writeFileWithRetry(
       const nodeError = error as NodeJS.ErrnoException;
       lastError = nodeError;
 
-      // Check if this is a transient error we should retry
-      const isTransient = nodeError.code && (TRANSIENT_ERROR_CODES as readonly string[]).includes(nodeError.code);
-
-      if (!isTransient || attempt === maxRetries) {
+      if (!isTransientFileSystemError(nodeError) || attempt === maxRetries) {
         // Not transient or out of retries - throw
         throw new AtomicFileError(
           `Failed to write file ${filepath} after ${attempt + 1} attempts: ${nodeError.message}`
@@ -211,10 +277,7 @@ export async function readFileWithRetry(
       const nodeError = error as NodeJS.ErrnoException;
       lastError = nodeError;
 
-      // Check if this is a transient error we should retry
-      const isTransient = nodeError.code && (TRANSIENT_ERROR_CODES as readonly string[]).includes(nodeError.code);
-
-      if (!isTransient || attempt === maxRetries) {
+      if (!isTransientFileSystemError(nodeError) || attempt === maxRetries) {
         // Not transient or out of retries - throw
         throw new AtomicFileError(
           `Failed to read file ${filepath} after ${attempt + 1} attempts: ${nodeError.message}`

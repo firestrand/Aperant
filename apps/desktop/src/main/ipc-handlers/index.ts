@@ -30,6 +30,8 @@ import { registerAppUpdateHandlers } from './app-update-handlers';
 import { registerDebugHandlers } from './debug-handlers';
 import { registerClaudeCodeHandlers } from './claude-code-handlers';
 import { registerMcpHandlers } from './mcp-handlers';
+import { registerSkillHandlers } from './skill-handlers';
+import { registerScheduledTaskHandlers } from './scheduled-task-handlers';
 import { registerProfileHandlers } from './profile-handlers';
 import { registerScreenshotHandlers } from './screenshot-handlers';
 import { registerTerminalWorktreeIpcHandlers } from './terminal';
@@ -119,6 +121,12 @@ export function setupIpcHandlers(
   // MCP server health check handlers
   registerMcpHandlers();
 
+  // Skills handlers
+  registerSkillHandlers();
+
+  // Scheduled recurring task handlers
+  registerScheduledTaskHandlers(agentManager);
+
   // API Profile handlers (custom Anthropic-compatible endpoints)
   registerProfileHandlers();
 
@@ -157,6 +165,8 @@ export {
   registerDebugHandlers,
   registerClaudeCodeHandlers,
   registerMcpHandlers,
+  registerSkillHandlers,
+  registerScheduledTaskHandlers,
   registerProfileHandlers,
   registerScreenshotHandlers,
   registerCodexAuthHandlers,

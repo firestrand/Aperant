@@ -21,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { useTranslation } from 'react-i18next';
 import type { CustomMcpServer } from '../../shared/types';
 import { Terminal, Globe, X, Github, ExternalLink } from 'lucide-react';
+import { preserveMcpCatalogValueIfUnchanged } from './mcp-catalog-values';
 
 interface CustomMcpDialogProps {
   open: boolean;
@@ -103,7 +104,11 @@ export function CustomMcpDialog({
   // Reset form when dialog opens/closes or server changes
   useEffect(() => {
     if (open && server) {
-      setFormData(server);
+      setFormData({
+        ...server,
+        name: t(server.name),
+        description: server.description ? t(server.description) : undefined,
+      });
       setArgsInput(server.args?.join(' ') || '');
       // Extract bearer token from existing Authorization header
       const authHeader = server.headers?.['Authorization'] || server.headers?.['authorization'] || '';
@@ -136,7 +141,7 @@ export function CustomMcpDialog({
     }
     setHeaderKey('');
     setHeaderValue('');
-  }, [open, server]);
+  }, [open, server, t]);
 
   // Generate ID from name
   const generateId = (name: string): string => {
@@ -188,9 +193,9 @@ export function CustomMcpDialog({
 
     const serverToSave: CustomMcpServer = {
       id: generatedId,
-      name: formData.name.trim(),
+      name: preserveMcpCatalogValueIfUnchanged(server?.name, formData.name, t) ?? formData.name.trim(),
       type: formData.type,
-      description: formData.description?.trim() || undefined,
+      description: preserveMcpCatalogValueIfUnchanged(server?.description, formData.description, t),
       ...(formData.type === 'command'
         ? {
             command: formData.command,
@@ -291,7 +296,7 @@ export function CustomMcpDialog({
             />
             {!isEditing && formData.name && (
               <p className="text-xs text-muted-foreground">
-                ID: {generateId(formData.name) || '...'}
+                {t('mcp.generatedId', { id: generateId(formData.name) || '...' })}
               </p>
             )}
           </div>
@@ -321,7 +326,7 @@ export function CustomMcpDialog({
                     setFormData(prev => ({ ...prev, command: e.target.value }));
                     setError(null);
                   }}
-                  placeholder="npx"
+                  placeholder={t('mcp.commandPlaceholder')}
                 />
               </div>
               <div className="space-y-2">
@@ -330,7 +335,7 @@ export function CustomMcpDialog({
                   id="args"
                   value={argsInput}
                   onChange={(e) => setArgsInput(e.target.value)}
-                  placeholder="-y @myorg/my-mcp-server"
+                  placeholder={t('mcp.argsPlaceholder')}
                 />
                 <p className="text-xs text-muted-foreground">{t('mcp.argsHint')}</p>
               </div>
@@ -349,7 +354,7 @@ export function CustomMcpDialog({
                     setFormData(prev => ({ ...prev, url: e.target.value }));
                     setError(null);
                   }}
-                  placeholder="https://mcp.example.com/mcp"
+                  placeholder={t('mcp.urlPlaceholder')}
                 />
               </div>
 

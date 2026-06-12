@@ -202,9 +202,9 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
       case 'terminal-fonts':
         return <TerminalFontSettings />;
       case 'agent':
-        return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" />;
+        return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="agent" projectDir={selectedProject?.path} />;
       case 'paths':
-        return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />;
+        return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" projectDir={selectedProject?.path} />;
       case 'accounts':
         return <AccountSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
       case 'mcp':

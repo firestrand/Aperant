@@ -18,6 +18,7 @@ import { Label } from './ui/label';
 import { Combobox } from './ui/combobox';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
+import { TaskAttachmentsInput } from './task-form/TaskAttachmentsInput';
 import { type FileReferenceData } from './task-form/useImageUpload';
 import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
@@ -25,7 +26,7 @@ import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../s
 import { useProjectStore } from '../stores/project-store';
 import { buildBranchOptions } from '../lib/branch-utils';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile, GitBranchDetail } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile, GitBranchDetail } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -76,6 +77,7 @@ export function TaskCreationWizard({
   const resolvedAgentSettings = resolveEffectiveAgentSettings(settings, effectiveProvider ?? undefined, projectAgentOverrides);
   const resolvedPhaseModels = resolvedAgentSettings.phaseModels;
   const resolvedPhaseThinking = resolvedAgentSettings.phaseThinking;
+  const taskAttachmentsEnabled = settings.taskAttachmentsEnabled === true;
 
   // Form state
   const [title, setTitle] = useState('');
@@ -135,6 +137,7 @@ export function TaskCreationWizard({
 
   // Images and files
   const [images, setImages] = useState<ImageAttachment[]>([]);
+  const [attachments, setAttachments] = useState<TaskAttachment[]>([]);
   const [referencedFiles, setReferencedFiles] = useState<ReferencedFile[]>([]);
 
   // Review setting
@@ -186,6 +189,7 @@ export function TaskCreationWizard({
         setPhaseModels(draft.phaseModels || resolvedPhaseModels);
         setPhaseThinking(draft.phaseThinking || resolvedPhaseThinking);
         setImages(draft.images);
+        setAttachments(draft.attachments ?? []);
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
         setFastMode(draft.fastMode ?? false);
@@ -210,6 +214,7 @@ export function TaskCreationWizard({
         setPhaseModels(resolvedPhaseModels);
         setPhaseThinking(resolvedPhaseThinking);
         setImages([]);
+        setAttachments([]);
         setReferencedFiles([]);
         setRequireReviewBeforeCoding(false);
         setFastMode(false);
@@ -288,12 +293,13 @@ export function TaskCreationWizard({
     phaseModels,
     phaseThinking,
     images,
+    attachments,
     referencedFiles,
     requireReviewBeforeCoding,
     fastMode,
     pushNewBranches,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, fastMode, pushNewBranches]);
+  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, attachments, referencedFiles, requireReviewBeforeCoding, fastMode, pushNewBranches]);
 
   /**
    * Detect @ mention being typed and show autocomplete
@@ -469,6 +475,7 @@ export function TaskCreationWizard({
       );
 
       if (images.length > 0) metadata.attachedImages = images;
+      if (taskAttachmentsEnabled && attachments.length > 0) metadata.attachments = attachments;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;
       // Always include baseBranch - resolve PROJECT_DEFAULT_BRANCH to actual branch name
@@ -515,6 +522,7 @@ export function TaskCreationWizard({
     setPhaseModels(resolvedPhaseModels);
     setPhaseThinking(resolvedPhaseThinking);
     setImages([]);
+    setAttachments([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
     setFastMode(false);
@@ -721,6 +729,14 @@ export function TaskCreationWizard({
             />
           )}
         </TaskFormFields>
+
+        {taskAttachmentsEnabled && (
+          <TaskAttachmentsInput
+            attachments={attachments}
+            onAttachmentsChange={setAttachments}
+            disabled={isCreating}
+          />
+        )}
 
         {/* Git Options Toggle - unique to creation */}
         <button

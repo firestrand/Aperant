@@ -26,6 +26,7 @@ import { findTaskWorktree } from '../worktree-paths';
 import { readSettingsFile } from '../settings-utils';
 import type { ProviderAccount } from '../../shared/types/provider-account';
 import { tryLoadPrompt } from '../ai/prompts/prompt-loader';
+import { SkillsManager } from '../skills/skills-manager';
 import {
   resolveTaskSnapshotAgentSettings,
   resolveTaskSnapshotPhaseModelId,
@@ -172,6 +173,31 @@ export class AgentManager extends EventEmitter {
   private getGlobalMcpServers(): CustomMcpServer[] {
     const settings = readSettingsFile() as Partial<AppSettings> | null;
     return settings?.globalMcpServers ?? [];
+  }
+
+  private async getSkillInstructions(projectPath: string): Promise<string | null> {
+    const settings = readSettingsFile() as Partial<AppSettings> | null;
+    if (settings?.skillsEnabled !== true) return null;
+
+    const userDataDir = this.getUserDataDir();
+    if (!userDataDir) return null;
+
+    try {
+      return await new SkillsManager({ userDataDir, projectDir: projectPath }).getPromptInstructions('build');
+    } catch (error) {
+      console.warn('[AgentManager] Failed to load skills:', error);
+      return null;
+    }
+  }
+
+  private getUserDataDir(): string | null {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { app } = require('electron') as typeof import('electron');
+      return app.getPath('userData');
+    } catch {
+      return null;
+    }
   }
 
   private getProjectMcpOptions(
@@ -457,6 +483,7 @@ export class AgentManager extends EventEmitter {
 
     // Build the serializable session config for the worker
     const resolvedSpecDir = specDir ?? path.join(projectPath, '.auto-claude', 'specs', taskId);
+    const skillInstructions = await this.getSkillInstructions(projectPath);
     const sessionConfig: SerializableSessionConfig = {
       agentType: 'spec_orchestrator' as const,
       systemPrompt,
@@ -470,6 +497,7 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: resolvedSpecDir,
       projectDir: projectPath,
+      skillInstructions,
       provider: resolved.provider,
       modelId: resolved.modelId,
       apiKey: resolved.auth?.apiKey,
@@ -586,6 +614,7 @@ export class AgentManager extends EventEmitter {
     const initialMessages = this.buildTaskExecutionMessages(worktreeSpecDir, specId, effectiveProjectDir);
 
     // Build the serializable session config for the worker
+    const skillInstructions = await this.getSkillInstructions(projectPath);
     const sessionConfig: SerializableSessionConfig = {
       agentType: 'build_orchestrator' as const,
       systemPrompt,
@@ -593,6 +622,7 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: worktreeSpecDir,
       projectDir: effectiveProjectDir,
+      skillInstructions,
       // When running in a worktree, sourceSpecDir points to the main project spec dir
       // so the subtask iterator can sync phase updates in real time (not just on exit).
       sourceSpecDir: worktreePath ? specDir : undefined,
@@ -714,6 +744,7 @@ export class AgentManager extends EventEmitter {
     const qaInitialMessages = this.buildQAInitialMessages(effectiveSpecDir, specId, effectiveProjectDir);
 
     // Build the serializable session config for the worker
+    const skillInstructions = await this.getSkillInstructions(projectPath);
     const sessionConfig: SerializableSessionConfig = {
       agentType: 'qa_reviewer',
       systemPrompt,
@@ -721,6 +752,7 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: effectiveSpecDir,
       projectDir: effectiveProjectDir,
+      skillInstructions,
       provider: resolved.provider,
       modelId: resolved.modelId,
       apiKey: resolved.auth?.apiKey,

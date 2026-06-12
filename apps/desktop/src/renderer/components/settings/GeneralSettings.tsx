@@ -6,6 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
 import { ProviderAgentTabs } from './ProviderAgentTabs';
+import { SkillsSettings } from './SkillsSettings';
+import { ScheduledTasksSettings } from './ScheduledTasksSettings';
+import { TaskAttachmentsSettings } from './TaskAttachmentsSettings';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import type {
   AppSettings,
@@ -16,6 +19,7 @@ interface GeneralSettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
   section: 'agent' | 'paths';
+  projectDir?: string;
 }
 
 /**
@@ -80,7 +84,7 @@ function ToolDetectionDisplay({ info, isLoading, t }: ToolDetectionDisplayProps)
 /**
  * General settings component for agent configuration and paths
  */
-export function GeneralSettings({ settings, onSettingsChange, section }: GeneralSettingsProps) {
+export function GeneralSettings({ settings, onSettingsChange, section, projectDir }: GeneralSettingsProps) {
   const { t } = useTranslation('settings');
   const [toolsInfo, setToolsInfo] = useState<{
     python: ToolDetectionResult;
@@ -116,6 +120,12 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
       <div className="space-y-8">
         {/* Provider-tabbed agent settings (profiles, features, model overrides) */}
         <ProviderAgentTabs />
+
+        <SkillsSettings settings={settings} onSettingsChange={onSettingsChange} projectDir={projectDir} />
+
+        <ScheduledTasksSettings settings={settings} onSettingsChange={onSettingsChange} />
+
+        <TaskAttachmentsSettings settings={settings} onSettingsChange={onSettingsChange} />
 
         {/* Other Agent Settings */}
         <SettingsSection
