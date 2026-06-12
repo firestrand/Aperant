@@ -2,13 +2,13 @@
 
 Detailed documentation for Aperant setup, usage, and project direction.
 
-For the canonical explanation of how Aperant differs from the starting Auto Claude codebase and the selected donor fork, start with [fork-differences.md](fork-differences.md).
+For the canonical explanation of how this fork relates to Auto Claude, upstream Aperant, and the selected Auto Claude-derived fork, start with [fork-differences.md](fork-differences.md).
 
 ## Start Here
 
 | Guide | Description |
 |-------|-------------|
-| **[fork-differences.md](fork-differences.md)** | Canonical overview of Aperant's fork lineage, architectural divergence, adopted fork features, and future porting rules |
+| **[fork-differences.md](fork-differences.md)** | Canonical overview of the fork lineage, conditional upstream path, adopted fork features, and upstream-reconciliation guidance |
 
 ## User and Platform Guides
 
