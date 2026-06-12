@@ -2,7 +2,7 @@
 
 **Autonomous multi-agent coding framework that plans, builds, and validates software for you.**
 
-Aperant started from the Auto Claude codebase, but it should now be treated as a long-lived independent fork rather than a short-lived rename or downstream patch set. The project has diverged around a TypeScript-first Electron architecture, a Vercel AI SDK v6 agent runtime, and selected features ported from another Auto Claude-derived fork where they fit Aperant's safety and product model.
+Aperant started from the Auto Claude codebase and is now a long-lived independent fork with its own TypeScript-first Electron architecture, Vercel AI SDK v6 agent runtime, and curated fork-feature adoption policy. See [guides/fork-differences.md](guides/fork-differences.md) for the full lineage and divergence guide.
 
 ![Aperant Kanban Board](.github/assets/Auto-Claude-Kanban.png)
 
@@ -128,7 +128,7 @@ Aperant/
 
 ## Development
 
-Aperant is now developed as its own product line. When comparing against upstream Auto Claude or other forks, prefer porting concepts into Aperant's current `apps/desktop` architecture over copying older frontend/backend code directly. See [guides/selected-fork-features-characterization.md](guides/selected-fork-features-characterization.md) for the adopted fork-feature scope and supporting decisions.
+Aperant is developed as its own product line. When comparing against upstream Auto Claude or other forks, use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide and prefer porting concepts into Aperant's current `apps/desktop` architecture over copying older frontend/backend code directly.
 
 Want to build from source or contribute? See [CONTRIBUTING.md](CONTRIBUTING.md) for complete development setup instructions.
 

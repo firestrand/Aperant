@@ -2,7 +2,7 @@
 
 A modern Electron + React desktop application for the Aperant autonomous coding framework.
 
-Aperant is now maintained as a long-lived independent fork of the starting Auto Claude project. Desktop changes should target Aperant's current TypeScript/Electron architecture; selected ideas from another Auto Claude-derived fork are ported as Aperant-native, settings-gated features rather than copied directly.
+Aperant is maintained as a long-lived independent fork of the starting Auto Claude project. For the canonical lineage, divergence, and selected fork-feature adoption guide, see [../../guides/fork-differences.md](../../guides/fork-differences.md).
 
 ## Prerequisites
 

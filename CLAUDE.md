@@ -4,9 +4,9 @@ This file provides guidance to Claude Code when working with this repository.
 
 Aperant is an autonomous multi-agent coding framework that plans, builds, and validates software for you. It's a TypeScript-first Electron desktop application with a self-contained AI agent layer (Vercel AI SDK v6). A lightweight Python sidecar provides the optional Graphiti memory system.
 
-Aperant should now be treated as a long-lived independent fork of the starting Auto Claude project, not a temporary downstream patch set. Selected ideas from another Auto Claude-derived fork have been ported only where they fit Aperant's current TypeScript/Electron architecture, security model, i18n requirements, and default-off rollout strategy.
+Aperant should now be treated as a long-lived independent fork of the starting Auto Claude project, not a temporary downstream patch set. Use [guides/fork-differences.md](guides/fork-differences.md) as the canonical guide to lineage, architectural divergence, selected donor-fork features, and future porting rules.
 
-> **Deep-dive reference:** [ARCHITECTURE.md](shared_docs/ARCHITECTURE.md) | **Frontend contributing:** [apps/desktop/CONTRIBUTING.md](apps/desktop/CONTRIBUTING.md)
+> **Deep-dive reference:** [guides/fork-differences.md](guides/fork-differences.md) | **Frontend contributing:** [apps/desktop/CONTRIBUTING.md](apps/desktop/CONTRIBUTING.md)
 
 ## Product Overview
 
@@ -223,7 +223,7 @@ Each spec in `.auto-claude/specs/XXX-name/` contains: `spec.md`, `requirements.j
 
 ### Memory System (Graphiti)
 
-Graph-based semantic memory accessed via a Python MCP sidecar (lives outside `apps/desktop/`). The AI layer connects to it via `createMCPClient` from `@ai-sdk/mcp`. Configured through the Electron app's onboarding/settings UI. See [ARCHITECTURE.md](shared_docs/ARCHITECTURE.md#memory-system) for details.
+Graph-based semantic memory accessed via a Python MCP sidecar (lives outside `apps/desktop/`). The AI layer connects to it via `createMCPClient` from `@ai-sdk/mcp`. Configured through the Electron app's onboarding/settings UI. See [guides/fork-differences.md](guides/fork-differences.md) for current architecture and lineage context.
 
 ## Frontend Development
 
@@ -336,7 +336,7 @@ Supports Windows, macOS, Linux. CI tests all three.
 | `findExecutable(name)` | Cross-platform executable lookup |
 | `requiresShell(command)` | `.cmd/.bat` shell detection (Win) |
 
-Use `findExecutable()` and `joinPaths()` instead of hardcoded paths. See [ARCHITECTURE.md](shared_docs/ARCHITECTURE.md#cross-platform-development) for extended guide.
+Use `findExecutable()` and `joinPaths()` instead of hardcoded paths. See [guides/fork-differences.md](guides/fork-differences.md) for current fork architecture and porting rules.
 
 ## E2E Testing (Electron MCP)
 
@@ -346,7 +346,7 @@ QA agents can interact with the running Electron app via Chrome DevTools Protoco
 2. Enable Electron MCP in settings
 3. QA runs automatically through the TypeScript agent pipeline
 
-Tools: `take_screenshot`, `click_by_text`, `fill_input`, `get_page_structure`, `send_keyboard_shortcut`, `eval`. See [ARCHITECTURE.md](shared_docs/ARCHITECTURE.md#end-to-end-testing) for full capabilities.
+Tools: `take_screenshot`, `click_by_text`, `fill_input`, `get_page_structure`, `send_keyboard_shortcut`, `eval`. See the Electron MCP notes in this file for the current self-validation flow.
 
 ## Running the Application
 
